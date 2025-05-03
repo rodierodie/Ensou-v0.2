@@ -1,0 +1,835 @@
+/* 
+ * style.css
+ * Обновленные стили для приложения ChordPlayer 
+ */
+
+/* --------------- Основные переменные --------------- */
+:root {
+    /* Цветовая схема */
+    --color-primary: #2c3e50;
+    --color-secondary: #3498db;
+    --color-accent: #e74c3c;
+    --color-bg: #f8f9fa;
+    --color-text: #333;
+    --color-light: #f5f5f5;
+    --color-border: #ddd;
+    
+    /* Функциональные цвета */
+    --color-tonic: #3f51b5;
+    --color-subdominant: #4caf50;
+    --color-dominant: #f44336;
+    
+    /* Размеры */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    
+    /* Типографика */
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-md: 1rem;
+    --font-size-lg: 1.25rem;
+    --font-size-xl: 1.5rem;
+    --font-size-xxl: 2rem;
+    
+    /* Радиусы и тени */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    
+    /* Анимации */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.25s ease;
+    --transition-slow: 0.4s ease;
+}
+
+/* --------------- Базовые стили --------------- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    width: calc(100% - 10vw);
+    margin: 0 5vw;
+    padding: var(--space-md);
+    background-color: #fff;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    max-width: 1200px;
+}
+
+/* Медиа-запрос для планшетов */
+@media (max-width: 1024px) {
+    .container {
+        width: calc(100% - 16vw);
+        margin: 0 8vw;
+    }
+}
+
+/* Медиа-запрос для мобильных устройств */
+@media (max-width: 768px) {
+    .container {
+        width: calc(100% - 8vw);
+        margin: 0 4vw;
+        padding: var(--space-sm);
+    }
+}
+
+/* --------------- Заголовок приложения --------------- */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.logo {
+    font-size: var(--font-size-xl);
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.playback-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+}
+
+.tempo-control {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.tempo-control input {
+    width: 60px;
+    padding: 4px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    cursor: pointer;
+}
+
+.toggle-button {
+    padding: 4px 8px;
+    background-color: var(--color-light);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.toggle-button:hover {
+    background-color: #e0e0e0;
+}
+
+.main-controls {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+.play-button, .stop-button {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background-color: var(--color-secondary);
+    color: white;
+    font-size: var(--font-size-md);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.play-button:hover {
+    background-color: #2980b9;
+}
+
+.stop-button {
+    background-color: var(--color-accent);
+}
+
+.stop-button:hover {
+    background-color: #c0392b;
+}
+
+.play-button:disabled, .stop-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* --------------- Блоки трека --------------- */
+.blocks-tabs {
+    margin-bottom: var(--space-lg);
+}
+
+.block-tabs-container {
+    display: flex;
+    gap: var(--space-xs);
+    overflow-x: auto;
+    padding-bottom: var(--space-xs);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.block-tab {
+    padding: var(--space-xs) var(--space-md);
+    background-color: var(--color-light);
+    border: 1px solid var(--color-border);
+    border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.block-tab:hover {
+    background-color: #e0e0e0;
+}
+
+.block-tab.active {
+    background-color: white;
+    border-bottom: 1px solid white;
+    font-weight: bold;
+    color: var(--color-secondary);
+}
+
+.add-block {
+    padding: var(--space-xs) var(--space-md);
+    background-color: white;
+    border: 1px dashed var(--color-border);
+    border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.add-block:hover {
+    background-color: var(--color-light);
+}
+
+/* --------------- Активный блок --------------- */
+.active-block {
+    padding: var(--space-md);
+    background-color: white;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    margin-bottom: var(--space-lg);
+}
+
+.block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+}
+
+.block-title {
+    font-size: var(--font-size-xl);
+    color: var(--color-primary);
+}
+
+.duplicate-block {
+    padding: var(--space-xs) var(--space-md);
+    background-color: var(--color-light);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.duplicate-block:hover {
+    background-color: #e0e0e0;
+}
+
+/* --------------- Селектор тональности --------------- */
+.tonality-section {
+    margin-bottom: var(--space-lg);
+}
+
+.tonality-selector-container {
+    margin-bottom: var(--space-md);
+}
+
+.tonality-dropdowns {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    margin-bottom: var(--space-sm);
+}
+
+.dropdown-container {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.dropdown-container label {
+    font-weight: bold;
+}
+
+.dropdown-container select {
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: white;
+}
+
+.current-tonality {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-left: auto;
+}
+
+.tonality-code {
+    font-size: var(--font-size-lg);
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.tonality-name {
+    color: #666;
+    font-style: italic;
+}
+
+.toggle-circle {
+    padding: var(--space-xs) var(--space-md);
+    background-color: var(--color-light);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    margin-bottom: var(--space-sm);
+    transition: background-color var(--transition-fast);
+}
+
+.toggle-circle:hover {
+    background-color: #e0e0e0;
+}
+
+.tonality-circle-container {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* --------------- Секция аккордов --------------- */
+.chord-sections {
+    margin-bottom: var(--space-lg);
+}
+
+.chord-section {
+    margin-bottom: var(--space-md);
+}
+
+.chord-section h3 {
+    margin-bottom: var(--space-sm);
+    color: var(--color-primary);
+}
+
+.chord-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.chord-button {
+    position: relative;
+    padding: var(--space-md) var(--space-md) calc(var(--space-md) + 20px) var(--space-md);
+    background-color: var(--color-light);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+    min-width: 60px;
+}
+
+.chord-button:hover {
+    background-color: #e3f2fd;
+    border-color: #90caf9;
+}
+
+.chord-button.active {
+    background-color: #e3f2fd;
+    border-color: #2196f3;
+    font-weight: bold;
+}
+
+/* Подсветка подсказок аккордов */
+.chord-button.suggested-high {
+    box-shadow: 0 0 8px rgba(76, 175, 80, 0.9);
+    border-color: #4CAF50;
+}
+
+.chord-button.suggested-medium {
+    box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+    border-color: #8BC34A;
+}
+
+.chord-button.suggested-low {
+    box-shadow: 0 0 4px rgba(76, 175, 80, 0.3);
+    border-color: #CDDC39;
+}
+
+/* --------------- Иконки функций --------------- */
+.function-icon {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+}
+
+.tonic {
+    background-color: var(--color-tonic);
+}
+
+.subdominant {
+    background-color: var(--color-subdominant);
+}
+
+.dominant {
+    background-color: var(--color-dominant);
+}
+
+.suggestion-function-icon,
+.sequence-function-icon {
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+}
+
+/* --------------- Информация об аккорде --------------- */
+.chord-info-section {
+    background-color: #f9f9f9;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.chord-name {
+    font-size: var(--font-size-lg);
+    font-weight: bold;
+    margin-bottom: var(--space-xs);
+}
+
+.chord-notes {
+    margin-bottom: var(--space-sm);
+}
+
+.chord-functions {
+    margin-bottom: var(--space-md);
+}
+
+.functions-title {
+    margin-bottom: var(--space-xs);
+    font-weight: bold;
+}
+
+.function {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-xs);
+}
+
+.play-chord-button {
+    padding: var(--space-xs) var(--space-md);
+    background-color: var(--color-secondary);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: white;
+    cursor: pointer;
+    margin-right: var(--space-sm);
+    transition: background-color var(--transition-fast);
+}
+
+.play-chord-button:hover {
+    background-color: #2980b9;
+}
+
+.add-chord-button {
+    padding: var(--space-xs) var(--space-md);
+    background-color: var(--color-light);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.add-chord-button:hover {
+    background-color: #e0e0e0;
+}
+
+.hide-info-button {
+    padding: var(--space-xs) var(--space-md);
+    background-color: var(--color-light);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    margin-left: auto;
+    transition: background-color var(--transition-fast);
+}
+
+.hide-info-button:hover {
+    background-color: #e0e0e0;
+}
+
+/* --------------- Секвенция аккордов --------------- */
+.sequence-section {
+    margin-bottom: var(--space-lg);
+}
+
+.sequence-section h3 {
+    margin-bottom: var(--space-sm);
+    color: var(--color-primary);
+}
+
+.sequence-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-sm);
+}
+
+.sequence-actions {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+.add-pause-button {
+    padding: var(--space-xs) var(--space-md);
+    background-color: var(--color-light);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.add-pause-button:hover {
+    background-color: #e0e0e0;
+}
+
+.clear-button {
+    padding: var(--space-xs) var(--space-md);
+    background-color: var(--color-light);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.clear-button:hover {
+    background-color: #e0e0e0;
+}
+
+.sequence-container {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: var(--space-md);
+    min-height: 80px;
+    background-color: #f0f0f0;
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-md);
+    align-items: center;
+    position: relative;
+    border: 1px solid var(--color-border);
+    scrollbar-width: thin;
+}
+
+.sequence-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.sequence-container::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
+}
+
+.timeline-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    color: #999;
+    font-style: italic;
+    min-height: 60px;
+}
+
+.sequence-card {
+    position: relative;
+    min-width: 60px;
+    height: 60px;
+    margin-right: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: white;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+    padding-bottom: 28px;
+}
+
+.sequence-card:hover {
+    border-color: var(--color-secondary);
+    box-shadow: 0 1px 5px rgba(66, 135, 245, 0.3);
+}
+
+.sequence-card.current-playing {
+    background-color: #e8f5e9;
+    border-color: #4caf50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+}
+
+.card-remove {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: var(--color-accent);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+    z-index: 2;
+}
+
+.sequence-card:hover .card-remove {
+    opacity: 1;
+}
+
+.pause-symbol {
+    font-size: 1.5rem;
+    color: #666;
+    font-weight: normal;
+}
+
+.export-controls {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.export-button {
+    padding: var(--space-xs) var(--space-md);
+    background-color: var(--color-light);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.export-button:hover {
+    background-color: #e0e0e0;
+}
+
+/* --------------- Подвал приложения --------------- */
+.app-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--color-border);
+}
+
+.version {
+    color: #999;
+    font-size: var(--font-size-sm);
+}
+
+.actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.import-button {
+    padding: var(--space-xs) var(--space-md);
+    background-color: var(--color-light);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+    display: inline-block;
+}
+
+.import-button:hover {
+    background-color: #e0e0e0;
+}
+
+/* --------------- Модальные окна --------------- */
+.modal-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-container.hidden {
+    display: none;
+}
+
+.modal {
+    background-color: white;
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    max-width: 90%;
+    max-height: 90%;
+    overflow: auto;
+    box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+}
+
+.modal-title {
+    font-size: var(--font-size-lg);
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.modal-close {
+    font-size: var(--font-size-xl);
+    color: #999;
+    cursor: pointer;
+    border: none;
+    background: none;
+    transition: color var(--transition-fast);
+}
+
+.modal-close:hover {
+    color: var(--color-accent);
+}
+
+.modal-content {
+    margin-bottom: var(--space-md);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+}
+
+/* --------------- Контекстное меню --------------- */
+.block-context-menu {
+    position: absolute;
+    background-color: white;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    z-index: 1000;
+}
+
+.context-menu-item {
+    padding: var(--space-xs) var(--space-md);
+    cursor: pointer;
+}
+
+.context-menu-item:hover {
+    background-color: var(--color-light);
+}
+
+.context-menu-item.danger {
+    color: var(--color-accent);
+}
+
+/* --------------- Адаптивность --------------- */
+@media (max-width: 768px) {
+    .app-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .logo {
+        margin-bottom: var(--space-sm);
+    }
+    
+    .playback-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .sequence-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .sequence-actions {
+        margin-bottom: var(--space-xs);
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .export-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .app-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .version {
+        margin-bottom: var(--space-xs);
+    }
+    
+    .actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}
