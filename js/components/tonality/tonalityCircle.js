@@ -3,16 +3,22 @@
  * Component for displaying and interacting with the circle of fifths
  */
 
+import Component from '../component.js';
 import store from '../../core/store.js';
 
-class TonalityCircle {
+class TonalityCircle extends Component {
   /**
    * Create a new TonalityCircle component
    * @param {HTMLElement} container - Container element for the circle
    * @param {Object} options - Configuration options
    */
   constructor(container, options = {}) {
-    this.container = container;
+    // Call super with autoRender disabled until we're ready
+    super(container, {
+      ...options,
+      autoRender: false
+    });
+    
     this.options = {
       radius: 150,           // Circle radius
       majorRadius: 120,      // Radius for major keys
@@ -57,36 +63,63 @@ class TonalityCircle {
       };
     });
     
+    // Get current tonality from store
+    const currentTonality = store.getCurrentTonality() || 'C';
+    
+    // Parse tonality to get note and type
+    let note, type;
+    if (typeof currentTonality === 'string' && currentTonality.endsWith('m')) {
+      note = currentTonality.slice(0, -1);
+      type = 'minor';
+    } else {
+      note = currentTonality;
+      type = 'major';
+    }
+    
     // Track selected note and type
-    this.selectedNote = null;
-    this.selectedType = 'major';
+    this.selectedNote = note;
+    this.selectedType = type;
     
     // Create SVG element
     this.createSvgElement();
     
-    // Initialize the circle
-    this.renderCircle();
-    
     // Subscribe to store changes
-    store.subscribe(this.handleStateChange.bind(this), ['currentTonality']);
+    this.subscribeToStore(this.handleStateChange, ['currentTonality']);
     
-    // Initial sync with store
-    this.syncWithStore();
+    // Now manually render
+    this.render();
   }
   
   /**
    * Create SVG element for the circle
    */
   createSvgElement() {
-    // Create SVG namespace element
-    this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    this.svg.setAttribute('viewBox', '0 0 300 300');
-    this.svg.setAttribute('width', '100%');
-    this.svg.setAttribute('height', 'auto');
-    this.svg.setAttribute('class', 'tonality-circle');
-    
-    // Append SVG to container
-    this.container.appendChild(this.svg);
+    try {
+      // Create SVG namespace element
+      this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      this.svg.setAttribute('viewBox', '0 0 300 300');
+      this.svg.setAttribute('width', '100%');
+      // Use a fixed height instead of 'auto'
+      this.svg.setAttribute('height', '300px');
+      this.svg.setAttribute('class', 'tonality-circle');
+      
+      // Append SVG to container
+      this.container.appendChild(this.svg);
+    } catch (error) {
+      console.error('Error creating SVG element:', error);
+    }
+  }
+  
+  /**
+   * Render the component
+   */
+  render() {
+    try {
+      // Render the circle of fifths
+      this.renderCircle();
+    } catch (error) {
+      console.error('Error rendering tonality circle:', error);
+    }
   }
   
   /**
@@ -94,7 +127,12 @@ class TonalityCircle {
    */
   renderCircle() {
     // Clear existing content
-    this.svg.innerHTML = '';
+    if (this.svg) {
+      this.svg.innerHTML = '';
+    } else {
+      console.warn('SVG element not created');
+      return;
+    }
     
     // Add outer circle
     const outerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -296,27 +334,18 @@ class TonalityCircle {
    */
   handleStateChange(state, changedProp) {
     if (changedProp === 'currentTonality') {
-      this.syncWithStore();
+      // Parse tonality code to get note and type
+      let note, type;
+      if (typeof state.currentTonality === 'string' && state.currentTonality.endsWith('m')) {
+        note = state.currentTonality.slice(0, -1);
+        type = 'minor';
+      } else {
+        note = state.currentTonality;
+        type = 'major';
+      }
+      
+      this.updateSelectedTonality(note, type);
     }
-  }
-  
-  /**
-   * Sync component with store
-   */
-  syncWithStore() {
-    const tonality = store.getCurrentTonality();
-    
-    // Parse tonality code to get note and type
-    let note, type;
-    if (tonality.endsWith('m')) {
-      note = tonality.slice(0, -1);
-      type = 'minor';
-    } else {
-      note = tonality;
-      type = 'major';
-    }
-    
-    this.updateSelectedTonality(note, type);
   }
 }
 

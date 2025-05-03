@@ -14,10 +14,16 @@ class TonalitySelector extends Component {
    * @param {Object} options - Configuration options
    */
   constructor(container, options = {}) {
-    super(container, {
+    // Call super first, but disable auto-render until we're ready
+    const combinedOptions = {
       ...options,
-      autoRender: true // Automatically render on instantiation
-    });
+      autoRender: false // Temporarily disable auto-render
+    };
+    
+    super(container, combinedOptions);
+    
+    // Initialize state after calling super
+    this.currentTonality = store.getCurrentTonality() || 'C';
     
     // Default options
     this.options = {
@@ -26,14 +32,11 @@ class TonalitySelector extends Component {
       ...options
     };
     
-    // State
-    this.currentTonality = '';
-    
     // Subscribe to store changes
     this.subscribeToStore(this.handleStateChange, ['currentTonality']);
     
-    // Sync with store
-    this.syncWithStore();
+    // Now manually render since we disabled auto-render
+    this.render();
   }
   
   /**
@@ -119,19 +122,23 @@ class TonalitySelector extends Component {
     const tonalityCode = this.createElement('span', {
       className: 'tonality-code',
       id: 'tonality-code',
-      textContent: this.currentTonality
+      textContent: this.currentTonality || 'C'
     });
     tonalityDisplay.appendChild(tonalityCode);
     
-    // Get tonality info
-    const tonality = tonalityCollection.getTonality(this.currentTonality);
-    if (tonality) {
-      const tonalityName = this.createElement('span', {
-        className: 'tonality-name',
-        id: 'tonality-name',
-        textContent: `(${tonality.name})`
-      });
-      tonalityDisplay.appendChild(tonalityName);
+    // Get tonality info if available
+    try {
+      const tonality = tonalityCollection.getTonality(this.currentTonality);
+      if (tonality) {
+        const tonalityName = this.createElement('span', {
+          className: 'tonality-name',
+          id: 'tonality-name',
+          textContent: `(${tonality.name})`
+        });
+        tonalityDisplay.appendChild(tonalityName);
+      }
+    } catch (error) {
+      console.warn('Error getting tonality info:', error);
     }
     
     dropdownsContainer.appendChild(tonalityDisplay);
@@ -152,9 +159,17 @@ class TonalitySelector extends Component {
     
     if (!rootNoteSelect || !typeSelect) return;
     
+    // Ensure currentTonality is defined before using it
+    if (!this.currentTonality) {
+      this.currentTonality = 'C'; // Set default value
+      return;
+    }
+    
     // Parse tonality code
     let rootNote, type;
-    if (this.currentTonality.endsWith('m')) {
+    
+    // Safely check if currentTonality is a string and ends with 'm'
+    if (typeof this.currentTonality === 'string' && this.currentTonality.endsWith('m')) {
       rootNote = this.currentTonality.slice(0, -1);
       type = 'minor';
     } else {
@@ -162,9 +177,14 @@ class TonalitySelector extends Component {
       type = 'major';
     }
     
-    // Update selects
-    rootNoteSelect.value = rootNote;
-    typeSelect.value = type;
+    // Update selects if values are valid
+    if (rootNote && this.getAvailableRootNotes().includes(rootNote)) {
+      rootNoteSelect.value = rootNote;
+    }
+    
+    if (type) {
+      typeSelect.value = type;
+    }
   }
   
   /**
@@ -182,14 +202,12 @@ class TonalitySelector extends Component {
     // Construct tonality code
     const tonalityCode = type === 'minor' ? rootNote + 'm' : rootNote;
     
-    // Update store if tonality exists
-    if (tonalityCollection.getTonality(tonalityCode)) {
-      store.setCurrentTonality(tonalityCode);
-      
-      // Call callback if provided
-      if (this.options.onChange) {
-        this.options.onChange(rootNote, type);
-      }
+    // Update store
+    store.setCurrentTonality(tonalityCode);
+    
+    // Call callback if provided
+    if (this.options.onChange) {
+      this.options.onChange(rootNote, type);
     }
   }
   
@@ -208,14 +226,12 @@ class TonalitySelector extends Component {
     // Construct tonality code
     const tonalityCode = type === 'minor' ? rootNote + 'm' : rootNote;
     
-    // Update store if tonality exists
-    if (tonalityCollection.getTonality(tonalityCode)) {
-      store.setCurrentTonality(tonalityCode);
-      
-      // Call callback if provided
-      if (this.options.onChange) {
-        this.options.onChange(rootNote, type);
-      }
+    // Update store
+    store.setCurrentTonality(tonalityCode);
+    
+    // Call callback if provided
+    if (this.options.onChange) {
+      this.options.onChange(rootNote, type);
     }
   }
   
@@ -251,7 +267,7 @@ class TonalitySelector extends Component {
    * @param {string} tonalityCode - Tonality code
    */
   updateSelectedTonality(tonalityCode) {
-    if (this.currentTonality === tonalityCode) return;
+    if (!tonalityCode || this.currentTonality === tonalityCode) return;
     
     this.currentTonality = tonalityCode;
     this.updateSelectedValues();
@@ -265,19 +281,15 @@ class TonalitySelector extends Component {
     }
     
     if (tonalityNameElement) {
-      const tonality = tonalityCollection.getTonality(tonalityCode);
-      if (tonality) {
-        tonalityNameElement.textContent = `(${tonality.name})`;
+      try {
+        const tonality = tonalityCollection.getTonality(tonalityCode);
+        if (tonality) {
+          tonalityNameElement.textContent = `(${tonality.name})`;
+        }
+      } catch (error) {
+        console.warn('Error updating tonality name:', error);
       }
     }
-  }
-  
-  /**
-   * Sync with store state
-   */
-  syncWithStore() {
-    this.currentTonality = store.getCurrentTonality();
-    this.updateSelectedTonality(this.currentTonality);
   }
   
   /**

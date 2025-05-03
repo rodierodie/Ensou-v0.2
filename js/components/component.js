@@ -31,6 +31,7 @@ class Component {
     // Set up event listeners and bindings
     this.eventListeners = [];
     this.storeSubscriptions = [];
+    this.eventSubscriptions = [];
     
     // Automatically render if enabled
     if (this.options.autoRender) {
@@ -98,8 +99,15 @@ class Component {
    * @returns {Function} Unsubscribe function
    */
   subscribeToEvent(event, callback) {
-    const subscription = eventBus.subscribe(event, callback.bind(this));
-    return subscription;
+    const unsubscribe = eventBus.subscribe(event, callback.bind(this));
+    
+    // Track subscription for cleanup
+    this.eventSubscriptions.push({
+      event,
+      unsubscribe
+    });
+    
+    return unsubscribe;
   }
   
   /**
@@ -125,13 +133,22 @@ class Component {
     Object.entries(attrs).forEach(([key, value]) => {
       if (key === 'className') {
         element.className = value;
+      } else if (key === 'dataset') {
+        // Handle dataset object
+        if (typeof value === 'object') {
+          Object.entries(value).forEach(([dataKey, dataValue]) => {
+            element.dataset[dataKey] = dataValue;
+          });
+        }
       } else if (key === 'style' && typeof value === 'object') {
+        // Handle style object
         Object.assign(element.style, value);
       } else if (key.startsWith('on') && typeof value === 'function') {
-        // Event handler
+        // Handle event handlers
         const eventName = key.slice(2).toLowerCase();
         this.addEventListener(element, eventName, value);
       } else {
+        // Handle regular attributes
         element.setAttribute(key, value);
       }
     });
@@ -139,6 +156,7 @@ class Component {
     // Add content
     if (content !== null) {
       if (Array.isArray(content)) {
+        // Add array of content
         content.forEach(child => {
           if (child instanceof HTMLElement) {
             element.appendChild(child);
@@ -147,8 +165,10 @@ class Component {
           }
         });
       } else if (content instanceof HTMLElement) {
+        // Add HTML element
         element.appendChild(content);
       } else if (typeof content === 'string') {
+        // Add text content
         element.textContent = content;
       }
     }
@@ -178,6 +198,10 @@ class Component {
     // Unsubscribe from store
     this.storeSubscriptions.forEach(unsubscribe => unsubscribe());
     this.storeSubscriptions = [];
+    
+    // Unsubscribe from events
+    this.eventSubscriptions.forEach(({ unsubscribe }) => unsubscribe());
+    this.eventSubscriptions = [];
   }
 }
 
