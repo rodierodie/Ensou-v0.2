@@ -6,13 +6,7 @@
 import Component from '../component.js';
 import store from '../../core/store.js';
 import audioService from '../../services/audioService.js';
-import eventBus from '../../core/eventBus.js';
-import { chordCollection } from '../../models/chord.js';
 
-/**
- * Sequence Component
- * Handles displaying and interacting with the chord sequence
- */
 class SequenceComponent extends Component {
   /**
    * Create a new SequenceComponent
@@ -20,13 +14,11 @@ class SequenceComponent extends Component {
    * @param {Object} options - Configuration options
    */
   constructor(container, options = {}) {
-    // Call super with autoRender disabled until we're ready
     super(container, {
       ...options,
       autoRender: false
     });
     
-    // Default options
     this.options = {
       onChordClick: null,      // Callback when chord is clicked
       onChordRemove: null,     // Callback when chord is removed
@@ -34,12 +26,21 @@ class SequenceComponent extends Component {
       ...options
     };
     
-    // Initialize state
+    // Sequence state
     this.sequence = [];
     this.currentPlayingIndex = -1;
     
+    // Initialize component
+    this.init();
+  }
+  
+  /**
+   * Initialize the component
+   */
+  init() {
     // Subscribe to store changes
-    this.subscribeToStore(this.handleStateChange, ['sequence', 'isPlaying']);
+    this.subscribeToStore(this.handleStateChange, 
+      ['sequence', 'isPlaying']);
     
     // Subscribe to events
     this.subscribeToEvent('chordPlaying', this.handleChordPlaying);
@@ -66,7 +67,7 @@ class SequenceComponent extends Component {
     if (this.sequence.length === 0) {
       const placeholder = this.createElement('div', {
         className: 'timeline-placeholder',
-        textContent: 'Add chords to the sequence'
+        textContent: 'Добавьте аккорды в последовательность'
       });
       
       this.container.appendChild(placeholder);
@@ -149,49 +150,29 @@ class SequenceComponent extends Component {
    * @returns {HTMLElement|null} Function icon element or null
    */
   createFunctionIcon(chordName) {
-    try {
-      // Skip for pauses and block dividers
-      if (chordName === 'PAUSE' || chordName === 'BLOCK_DIVIDER') {
-        return null;
-      }
-      
-      // Get chord data from collection or fallback to legacy data
-      let chord = null;
-      if (chordCollection && typeof chordCollection.getChord === 'function') {
-        chord = chordCollection.getChord(chordName);
-      }
-      
-      // Try fallback to legacy data
-      if (!chord && window.CHORD_DATA) {
-        chord = window.CHORD_DATA[chordName];
-      }
-      
-      if (!chord) return null;
-      
-      // Get current tonality
-      const tonality = store.getCurrentTonality();
-      
-      // Check if chord has function in this tonality
-      let chordFunction = null;
-      if (chord.getFunctionInTonality && typeof chord.getFunctionInTonality === 'function') {
-        chordFunction = chord.getFunctionInTonality(tonality);
-      } else if (chord.functions && chord.functions[tonality]) {
-        chordFunction = chord.functions[tonality];
-      }
-      
-      if (!chordFunction || !chordFunction.function) return null;
-      
-      // Create function icon
-      const functionIcon = this.createElement('span', {
-        className: `function-icon ${this.getFunctionClass(chordFunction.function)} sequence-function-icon`,
-        textContent: this.getFunctionLabel(chordFunction.function)
-      });
-      
-      return functionIcon;
-    } catch (error) {
-      console.warn('Error creating function icon:', error);
+    // Skip for pauses and block dividers
+    if (chordName === 'PAUSE' || chordName === 'BLOCK_DIVIDER') {
       return null;
     }
+    
+    // Get chord data and current tonality
+    const chord = window.CHORD_DATA ? window.CHORD_DATA[chordName] : null;
+    const tonality = store.getCurrentTonality();
+    
+    if (!chord || !chord.functions || !chord.functions[tonality]) {
+      return null;
+    }
+    
+    // Get chord function
+    const chordFunction = chord.functions[tonality].function;
+    
+    // Create icon
+    const functionIcon = this.createElement('span', {
+      className: `function-icon ${this.getFunctionClass(chordFunction)} sequence-function-icon`,
+      textContent: this.getFunctionLabel(chordFunction)
+    });
+    
+    return functionIcon;
   }
   
   /**
@@ -200,8 +181,6 @@ class SequenceComponent extends Component {
    * @returns {string} CSS class
    */
   getFunctionClass(functionName) {
-    if (!functionName) return '';
-    
     if (functionName.includes('tonic')) {
       return 'tonic';
     } else if (functionName.includes('dominant')) {
@@ -218,8 +197,6 @@ class SequenceComponent extends Component {
    * @returns {string} Label
    */
   getFunctionLabel(functionName) {
-    if (!functionName) return '?';
-    
     if (functionName.includes('tonic')) {
       return 'T';
     } else if (functionName.includes('dominant')) {
@@ -354,36 +331,6 @@ class SequenceComponent extends Component {
         }
         break;
     }
-  }
-  
-  /**
-   * Add chord to sequence
-   * @param {string} chordName - Name of the chord to add
-   */
-  addChord(chordName) {
-    store.addChordToSequence(chordName);
-  }
-  
-  /**
-   * Add pause to sequence
-   */
-  addPause() {
-    store.addChordToSequence('PAUSE');
-  }
-  
-  /**
-   * Clear sequence
-   */
-  clearSequence() {
-    store.clearSequence();
-  }
-  
-  /**
-   * Get sequence
-   * @returns {Array} Current sequence
-   */
-  getSequence() {
-    return [...this.sequence];
   }
 }
 

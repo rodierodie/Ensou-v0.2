@@ -3,21 +3,21 @@
  * Component for displaying information about the current chord
  */
 
+import Component from '../component.js';
 import store from '../../core/store.js';
 import audioService from '../../services/audioService.js';
 
-class ChordInfo {
+class ChordInfo extends Component {
   /**
    * Create a new ChordInfo component
    * @param {HTMLElement} container - Container element
    * @param {Object} options - Configuration options
    */
   constructor(container, options = {}) {
-    this.container = container;
-    this.options = {
-      onAddChord: null, // Callback for adding chord to sequence
-      ...options
-    };
+    super(container, {
+      ...options,
+      autoRender: true
+    });
     
     // Track current state
     this.currentChord = '';
@@ -33,7 +33,7 @@ class ChordInfo {
    */
   init() {
     // Subscribe to store changes
-    store.subscribe(this.handleStateChange.bind(this), 
+    this.subscribeToStore(this.handleStateChange.bind(this), 
       ['currentChord', 'currentTonality']);
     
     // Initial sync with store
@@ -51,9 +51,10 @@ class ChordInfo {
     let hideButton = this.container.querySelector('.hide-info-button');
     
     if (!hideButton) {
-      hideButton = document.createElement('button');
-      hideButton.className = 'hide-info-button';
-      hideButton.textContent = 'Скрыть информацию';
+      hideButton = this.createElement('button', {
+        className: 'hide-info-button',
+        textContent: 'Скрыть информацию'
+      });
       this.container.appendChild(hideButton);
     }
     
@@ -112,14 +113,16 @@ class ChordInfo {
     this.container.innerHTML = '';
     
     // Create chord name element
-    const nameElement = document.createElement('div');
-    nameElement.className = 'chord-name';
-    nameElement.textContent = `${chordName} (${chord.fullName})`;
+    const nameElement = this.createElement('div', {
+      className: 'chord-name',
+      textContent: `${chordName} (${chord.fullName})`
+    });
     this.container.appendChild(nameElement);
     
     // Create chord notes element
-    const notesElement = document.createElement('div');
-    notesElement.className = 'chord-notes';
+    const notesElement = this.createElement('div', {
+      className: 'chord-notes'
+    });
     
     // Display notes without octave
     const noteNames = chord.notes.map(note => note.replace(/[0-9]/g, ''));
@@ -128,13 +131,15 @@ class ChordInfo {
     this.container.appendChild(notesElement);
     
     // Create chord functions element
-    const functionsElement = document.createElement('div');
-    functionsElement.className = 'chord-functions';
+    const functionsElement = this.createElement('div', {
+      className: 'chord-functions'
+    });
     
     // Add title
-    const functionsTitle = document.createElement('div');
-    functionsTitle.className = 'functions-title';
-    functionsTitle.textContent = 'Функциональное значение:';
+    const functionsTitle = this.createElement('div', {
+      className: 'functions-title',
+      textContent: 'Функциональное значение:'
+    });
     functionsElement.appendChild(functionsTitle);
     
     // Add functions
@@ -146,19 +151,22 @@ class ChordInfo {
         const func = chord.functions[funcTonality];
         
         // Create function item
-        const functionItem = document.createElement('div');
-        functionItem.className = 'function';
+        const functionItem = this.createElement('div', {
+          className: 'function'
+        });
         
         // Create function icon
-        const iconElement = document.createElement('span');
-        iconElement.className = `function-icon ${this.getFunctionClass(func.function)}`;
-        iconElement.textContent = func.label;
+        const iconElement = this.createElement('span', {
+          className: `function-icon ${this.getFunctionClass(func.function)}`,
+          textContent: func.label
+        });
         functionItem.appendChild(iconElement);
         
         // Create function label
-        const labelElement = document.createElement('span');
-        labelElement.className = 'function-label';
-        labelElement.textContent = ` (${func.degree} ступень) в тональности ${funcTonality}`;
+        const labelElement = this.createElement('span', {
+          className: 'function-label',
+          textContent: ` (${func.degree} ступень) в тональности ${funcTonality}`
+        });
         functionItem.appendChild(labelElement);
         
         functionsElement.appendChild(functionItem);
@@ -167,32 +175,35 @@ class ChordInfo {
     
     // If no functions found
     if (!hasFunctions) {
-      const noFunctionsElement = document.createElement('div');
-      noFunctionsElement.textContent = 'Функция не определена';
+      const noFunctionsElement = this.createElement('div', {
+        textContent: 'Функция не определена'
+      });
       functionsElement.appendChild(noFunctionsElement);
     }
     
     this.container.appendChild(functionsElement);
     
     // Add play button
-    const playButton = document.createElement('button');
-    playButton.className = 'play-chord-button';
-    playButton.textContent = '▶ Проиграть';
-    playButton.addEventListener('click', () => {
-      audioService.playChord(chordName);
+    const playButton = this.createElement('button', {
+      className: 'play-chord-button',
+      textContent: '▶ Проиграть',
+      onClick: () => {
+        audioService.playChord(chordName);
+      }
     });
     this.container.appendChild(playButton);
     
     // Add button to add chord to sequence
-    const addButton = document.createElement('button');
-    addButton.className = 'add-chord-button';
-    addButton.textContent = '+ Добавить в последовательность';
-    addButton.addEventListener('click', () => {
-      store.addChordToSequence(chordName);
-      
-      // Call callback if provided
-      if (this.options.onAddChord) {
-        this.options.onAddChord(chordName);
+    const addButton = this.createElement('button', {
+      className: 'add-chord-button',
+      textContent: '+ Добавить в последовательность',
+      onClick: () => {
+        store.addChordToSequence(chordName);
+        
+        // Call callback if provided
+        if (this.options.onAddChord) {
+          this.options.onAddChord(chordName);
+        }
       }
     });
     this.container.appendChild(addButton);
