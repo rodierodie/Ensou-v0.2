@@ -1,128 +1,66 @@
-/**
- * eventBus.js
- * Simple event bus for application-wide events
- */
-
-/**
- * Event Bus class
- * Implements publish-subscribe pattern for loosely coupled communication
- */
+// js/core/eventBus.js
 class EventBus {
   constructor() {
-    // Map of event names to arrays of subscriber callbacks
-    this.subscribers = new Map();
+      // Карта для хранения подписчиков (имя события -> массив обработчиков)
+      this.subscribers = new Map();
   }
   
-  /**
-   * Subscribe to an event
-   * @param {string} event - Event name
-   * @param {Function} callback - Event handler
-   * @returns {Function} Unsubscribe function
-   */
+  // Подписка на событие
   subscribe(event, callback) {
-    // If this is the first subscriber for this event, create a new array
-    if (!this.subscribers.has(event)) {
-      this.subscribers.set(event, []);
-    }
-    
-    // Add callback to subscribers for this event
-    const callbacks = this.subscribers.get(event);
-    callbacks.push(callback);
-    
-    // Return unsubscribe function
-    return () => {
-      const index = callbacks.indexOf(callback);
-      if (index !== -1) {
-        callbacks.splice(index, 1);
+      // Если для этого события еще нет подписчиков, создаем массив
+      if (!this.subscribers.has(event)) {
+          this.subscribers.set(event, []);
       }
-    };
+      
+      // Добавляем обработчик к подписчикам на это событие
+      const callbacks = this.subscribers.get(event);
+      callbacks.push(callback);
+      
+      // Возвращаем функцию отписки
+      return () => {
+          const index = callbacks.indexOf(callback);
+          if (index !== -1) {
+              callbacks.splice(index, 1);
+          }
+      };
   }
   
-  /**
-   * Publish an event
-   * @param {string} event - Event name
-   * @param {*} data - Event data
-   */
+  // Публикация события
   publish(event, data) {
-    // If there are no subscribers for this event, do nothing
-    if (!this.subscribers.has(event)) {
-      return;
-    }
-    
-    // Call all subscribers with the provided data
-    const callbacks = this.subscribers.get(event);
-    callbacks.forEach(callback => {
-      try {
-        callback(data);
-      } catch (error) {
-        console.error(`Error in event subscriber for ${event}:`, error);
+      // Если на это событие нет подписчиков, просто выходим
+      if (!this.subscribers.has(event)) {
+          return;
       }
-    });
+      
+      // Вызываем всех подписчиков с переданными данными
+      const callbacks = this.subscribers.get(event);
+      callbacks.forEach(callback => {
+          try {
+              callback(data);
+          } catch (error) {
+              console.error(`Ошибка в обработчике события ${event}:`, error);
+          }
+      });
   }
   
-  /**
-   * Subscribe to an event with automatic unsubscription after first trigger
-   * @param {string} event - Event name
-   * @param {Function} callback - Event handler
-   * @returns {Function} Unsubscribe function
-   */
+  // Подписка на событие с автоматической отпиской после первого срабатывания
   subscribeOnce(event, callback) {
-    // Create a wrapping function that unsubscribes itself after execution
-    const wrappedCallback = (data) => {
-      // Unsubscribe first
-      unsubscribe();
-      // Then call the callback
-      callback(data);
-    };
-    
-    // Subscribe with the wrapped callback
-    const unsubscribe = this.subscribe(event, wrappedCallback);
-    
-    // Return unsubscribe function
-    return unsubscribe;
-  }
-  
-  /**
-   * Unsubscribe all callbacks for an event
-   * @param {string} event - Event name
-   */
-  unsubscribeAll(event) {
-    if (this.subscribers.has(event)) {
-      this.subscribers.delete(event);
-    }
-  }
-  
-  /**
-   * Get count of subscribers for an event
-   * @param {string} event - Event name
-   * @returns {number} Number of subscribers
-   */
-  subscriberCount(event) {
-    if (!this.subscribers.has(event)) {
-      return 0;
-    }
-    return this.subscribers.get(event).length;
-  }
-  
-  /**
-   * Check if event has subscribers
-   * @param {string} event - Event name
-   * @returns {boolean} True if event has subscribers
-   */
-  hasSubscribers(event) {
-    return this.subscriberCount(event) > 0;
-  }
-  
-  /**
-   * Get list of all events with subscribers
-   * @returns {Array} Array of event names
-   */
-  getEvents() {
-    return Array.from(this.subscribers.keys());
+      // Создаем функцию-обертку, которая отписывается сама после выполнения
+      const wrappedCallback = (data) => {
+          // Сначала отписываемся
+          unsubscribe();
+          // Затем вызываем обработчик
+          callback(data);
+      };
+      
+      // Подписываемся с обернутым обработчиком
+      const unsubscribe = this.subscribe(event, wrappedCallback);
+      
+      // Возвращаем функцию отписки
+      return unsubscribe;
   }
 }
 
-// Create singleton instance
+// Создаем и экспортируем синглтон объект eventBus
 const eventBus = new EventBus();
-
 export default eventBus;

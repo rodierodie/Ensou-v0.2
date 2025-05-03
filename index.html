@@ -9,10 +9,6 @@
     <!-- Загрузка внешних библиотек -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.5/Tone.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@3.1.1/browser/midiwriter.min.js"></script>
-    
-    <!-- Загрузка глобальных данных (для обратной совместимости) -->
-    <script src="js/tonality.js"></script>
-    <script src="js/chords.js"></script>
 </head>
 <body>
     <div class="container">
@@ -130,12 +126,12 @@
         <!-- Содержимое модальных окон будет добавляться динамически -->
     </div>
 
-    <!-- Новая архитектура приложения -->
-    <script type="module" src="js/app.js"></script>
+<!-- Подключение только основного модуля приложения -->
+<script type="module" src="js/app.js"></script>
     
-    <!-- Запасной вариант для браузеров, не поддерживающих ES модули -->
-    <script nomodule>
-        alert('Ваш браузер не поддерживает ES модули. Пожалуйста, используйте современный браузер.');
-    </script>
+<!-- Запасной вариант для браузеров, не поддерживающих ES модули -->
+<script nomodule>
+    alert('Ваш браузер не поддерживает ES модули. Пожалуйста, используйте современный браузер.');
+</script>
 </body>
 </html>

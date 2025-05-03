@@ -1,439 +1,370 @@
-/**
- * trackStructure.js
- * Model and service for managing track structure (blocks of chord sequences)
- */
-
+// js/models/trackStructure.js
 import store from '../core/store.js';
-import { ChordSequence, TrackBlock, TrackStructure } from './sequence.js';
 import eventBus from '../core/eventBus.js';
+import { ChordSequence, TrackBlock, TrackStructure } from './sequence.js';
 
-/**
- * Service for managing track structure
- */
 class TrackStructureService {
-  constructor() {
-    // Instance of TrackStructure model
-    this.trackStructure = null;
-    
-    // Initialize with empty structure
-    this.init();
-    
-    // Subscribe to store changes
-    store.subscribe(this.handleStoreChanges.bind(this), 
-      ['trackStructure', 'currentBlockIndex', 'sequence']);
-  }
-  
-  /**
-   * Initialize track structure
-   */
-  init() {
-    // Check store for existing structure
-    const storeStructure = store.getTrackStructure();
-    
-    if (storeStructure && storeStructure.length > 0) {
-      // Convert store structure to TrackStructure model
-      this.importFromStore(storeStructure);
-    } else {
-      // Create default structure
-      this.trackStructure = TrackStructure.createDefault();
-      this.exportToStore();
-    }
-  }
-  
-  /**
-   * Import track structure from store data
-   * @param {Array} storeStructure - Structure data from store
-   */
-  importFromStore(storeStructure) {
-    // Create blocks from store data
-    const blocks = storeStructure.map(blockData => {
-      return new TrackBlock(
-        blockData.id || 'block_' + Date.now(),
-        blockData.name,
-        blockData.tonality,
-        blockData.chords || []
-      );
-    });
-    
-    // Create new TrackStructure with blocks
-    this.trackStructure = new TrackStructure(blocks);
-    
-    // Set current block index
-    this.trackStructure.currentBlockIndex = store.getCurrentBlockIndex();
-  }
-  
-  /**
-   * Export track structure to store
-   */
-  exportToStore() {
-    if (!this.trackStructure) return;
-    
-    // Convert TrackStructure model to store format
-    const storeStructure = this.trackStructure.getAllBlocks().map(block => {
-      return {
-        id: block.id,
-        name: block.name,
-        tonality: block.tonality,
-        chords: block.chords
-      };
-    });
-    
-    // Update store
-    store.setTrackStructure(storeStructure);
-    store.setCurrentBlockIndex(this.trackStructure.currentBlockIndex);
-  }
-  
-  /**
-   * Get current track structure
-   * @returns {TrackStructure} Track structure model
-   */
-  getTrackStructure() {
-    return this.trackStructure;
-  }
-  
-  /**
-   * Get current block index
-   * @returns {number} Current block index
-   */
-  getCurrentBlockIndex() {
-    return this.trackStructure.currentBlockIndex;
-  }
-  
-  /**
-   * Add a new block
-   * @param {string} [tonality] - Tonality for the new block (default: current tonality)
-   * @returns {number} Index of the new block
-   */
-  addNewBlock(tonality) {
-    // If tonality not specified, use current
-    const blockTonality = tonality || store.getCurrentTonality();
-    
-    // Generate name for new block
-    const blockName = this.trackStructure.generateNextBlockName();
-    
-    // Create new block
-    const newBlock = new TrackBlock(
-      'block_' + Date.now(),
-      blockName,
-      blockTonality,
-      []
-    );
-    
-    // Add to structure
-    this.trackStructure.addBlock(newBlock);
-    
-    // Set as current block
-    const newIndex = this.trackStructure.blocks.length - 1;
-    this.trackStructure.setCurrentBlockIndex(newIndex);
-    
-    // Update store
-    this.exportToStore();
-    
-    // Notify about block addition
-    eventBus.publish('blockAdded', {
-      block: newBlock,
-      index: newIndex
-    });
-    
-    // Return new block index
-    return newIndex;
-  }
-  
-  /**
-   * Remove a block
-   * @param {number} index - Index of block to remove
-   * @returns {boolean} Success flag
-   */
-  removeBlock(index) {
-    // Check if this is the last block
-    if (this.trackStructure.blocks.length <= 1) {
-      console.warn('Cannot remove the last block');
-      return false;
+    constructor() {
+        // Экземпляр модели TrackStructure
+        this.trackStructure = null;
+        
+        // Флаги для предотвращения циклических обновлений
+        this.isExporting = false;
+        this.isLoading = false;
+        
+        // Инициализация с пустой структурой
+        this.init();
+        
+        // Подписка на изменения в store
+        store.subscribe(this.handleStoreChanges.bind(this), 
+            ['trackStructure', 'currentBlockIndex', 'sequence']);
     }
     
-    // Store removed block for event
-    const removedBlock = this.trackStructure.getBlockAt(index);
-    
-    // Remove block
-    this.trackStructure.removeBlock(index);
-    
-    // Update store
-    this.exportToStore();
-    
-    // Notify about block removal
-    eventBus.publish('blockRemoved', {
-      block: removedBlock,
-      index: index
-    });
-    
-    return true;
-  }
-  
-  /**
-   * Duplicate a block
-   * @param {number} index - Index of block to duplicate
-   * @returns {number} Index of new block or -1 if failed
-   */
-  duplicateBlock(index) {
-    // Duplicate block
-    const newIndex = this.trackStructure.duplicateBlock(index);
-    
-    // Check if operation succeeded
-    if (newIndex === -1) {
-      return -1;
-    }
-    
-    // Update store
-    this.exportToStore();
-    
-    // Notify about block duplication
-    eventBus.publish('blockDuplicated', {
-      originalIndex: index,
-      newIndex: newIndex,
-      block: this.trackStructure.getBlockAt(newIndex)
-    });
-    
-    return newIndex;
-  }
-  
-  /**
-   * Rename a block
-   * @param {number} index - Block index
-   * @param {string} newName - New name
-   * @returns {boolean} Success flag
-   */
-  renameBlock(index, newName) {
-    // Validate name format
-    if (!/^[A-Z][1-9](\d*)$/.test(newName)) {
-      console.error('Invalid block name format. Must be a letter followed by a number (e.g., A1, B2)');
-      return false;
-    }
-    
-    // Store original name for event
-    const oldName = this.trackStructure.getBlockAt(index)?.name;
-    
-    // Rename block
-    const success = this.trackStructure.renameBlock(index, newName);
-    
-    if (success) {
-      // Update store
-      this.exportToStore();
-      
-      // Notify about block rename
-      eventBus.publish('blockRenamed', {
-        index: index,
-        oldName: oldName,
-        newName: newName
-      });
-    }
-    
-    return success;
-  }
-  
-  /**
-   * Change block tonality
-   * @param {number} index - Block index
-   * @param {string} newTonality - New tonality
-   * @param {boolean} [fromUI=false] - Flag indicating change came from UI
-   * @returns {boolean} Success flag
-   */
-  changeBlockTonality(index, newTonality, fromUI = false) {
-    // Store original tonality for event
-    const oldTonality = this.trackStructure.getBlockAt(index)?.tonality;
-    
-    // Change tonality
-    const success = this.trackStructure.changeBlockTonality(index, newTonality);
-    
-    if (success) {
-      // Update store
-      this.exportToStore();
-      
-      // If this is the current block and change didn't come from UI,
-      // update application tonality
-      if (index === this.trackStructure.currentBlockIndex && !fromUI) {
-        if (store.getCurrentTonality() !== newTonality) {
-          // Set flag to prevent circular updates
-          if (window.UI && window.UI.setInternalTonalityChange) {
-            window.UI.setInternalTonalityChange(true);
-          }
-          
-          // Update tonality
-          store.setCurrentTonality(newTonality);
+    // Инициализация
+    init() {
+        // Проверка наличия структуры в store
+        const storeStructure = store.getTrackStructure();
+        
+        if (storeStructure && storeStructure.length > 0) {
+            // Импорт структуры из store
+            this.importFromStore(storeStructure);
+        } else {
+            // Создание дефолтной структуры
+            this.trackStructure = TrackStructure.createDefault();
+            this.exportToStore();
         }
-      }
-      
-      // Notify about tonality change
-      eventBus.publish('blockTonalityChanged', {
-        index: index,
-        oldTonality: oldTonality,
-        newTonality: newTonality
-      });
     }
     
-    return success;
-  }
-  
-  /**
-   * Save current sequence to block
-   * @param {number} [index] - Block index (default: current)
-   * @returns {boolean} Success flag
-   */
-  saveSequenceToBlock(index = null) {
-    // If index not provided, use current
-    const blockIndex = index !== null ? index : this.trackStructure.currentBlockIndex;
-    
-    // Get current sequence
-    const sequence = store.getSequence();
-    
-    // Get block
-    const block = this.trackStructure.getBlockAt(blockIndex);
-    if (!block) {
-      return false;
-    }
-    
-    // Update block chords
-    block.chords = [...sequence];
-    
-    // Update store
-    this.exportToStore();
-    
-    // Notify about sequence save
-    eventBus.publish('sequenceSavedToBlock', {
-      index: blockIndex,
-      sequence: sequence
-    });
-    
-    return true;
-  }
-  
-  /**
-   * Load sequence from block
-   * @param {number} index - Block index
-   */
-  loadBlockSequence(index) {
-    // Check if block exists
-    const block = this.trackStructure.getBlockAt(index);
-    if (!block) {
-      return false;
-    }
-    
-    // Update current block index
-    this.trackStructure.setCurrentBlockIndex(index);
-    
-    // Update store
-    store.setCurrentBlockIndex(index);
-    store.setSequence(block.chords || []);
-    
-    // If tonality is different from current, update it
-    if (block.tonality !== store.getCurrentTonality()) {
-      // Set flag to prevent circular updates if using legacy UI
-      if (window.UI && window.UI.setInternalTonalityChange) {
-        window.UI.setInternalTonalityChange(true);
-      }
-      
-      store.setCurrentTonality(block.tonality);
-    }
-    
-    // Notify about block loading
-    eventBus.publish('blockSequenceLoaded', {
-      index: index,
-      block: block
-    });
-    
-    return true;
-  }
-  
-  /**
-   * Clear current block (remove all chords)
-   * @returns {boolean} Success flag
-   */
-  clearCurrentBlock() {
-    const index = this.trackStructure.currentBlockIndex;
-    
-    // Get block
-    const block = this.trackStructure.getBlockAt(index);
-    if (!block) {
-      return false;
-    }
-    
-    // Clear block chords
-    block.chords = [];
-    
-    // Update store
-    this.exportToStore();
-    store.clearSequence();
-    
-    // Notify about block clearing
-    eventBus.publish('blockCleared', {
-      index: index
-    });
-    
-    return true;
-  }
-  
-  /**
-   * Play all blocks in sequence
-   */
-  playFullTrack() {
-    // Get all chords from all blocks
-    const allChords = this.trackStructure.getAllChords();
-    
-    // Check if there are chords to play
-    if (!allChords || allChords.length === 0) {
-      console.warn('No chords to play');
-      return;
-    }
-    
-    // Import from audioService
-    const audioService = require('../services/audioService').default;
-    
-    // Play full sequence
-    audioService.playSequence(allChords, false);
-    
-    // Notify about full track playback
-    eventBus.publish('fullTrackPlaybackStarted', {
-      chordCount: allChords.length,
-      blockCount: this.trackStructure.blocks.length
-    });
-  }
-  
-  /**
-   * Handle store changes
-   * @param {Object} state - Store state
-   * @param {string} changedProp - Changed property
-   */
-  handleStoreChanges(state, changedProp) {
-    switch (changedProp) {
-      // Structure changed in store
-      case 'trackStructure':
-        // Skip if change came from this service
-        if (this.isExporting) break;
+    // Импорт структуры из store
+    importFromStore(storeStructure) {
+        // Создаем блоки из данных store
+        const blocks = storeStructure.map(blockData => {
+            return new TrackBlock(
+                blockData.id || 'block_' + Date.now(),
+                blockData.name,
+                blockData.tonality,
+                blockData.chords || []
+            );
+        });
         
-        // Import new structure
-        this.importFromStore(state.trackStructure);
-        break;
+        // Создаем новую структуру с блоками
+        this.trackStructure = new TrackStructure(blocks);
         
-      // Current block index changed
-      case 'currentBlockIndex':
-        // Update model
-        if (this.trackStructure) {
-          this.trackStructure.currentBlockIndex = state.currentBlockIndex;
+        // Устанавливаем индекс текущего блока
+        this.trackStructure.currentBlockIndex = store.getCurrentBlockIndex();
+    }
+    
+    // Экспорт структуры в store
+    exportToStore() {
+        if (!this.trackStructure) return;
+        
+        // Устанавливаем флаг, чтобы избежать циклических обновлений
+        this.isExporting = true;
+        
+        // Конвертируем модель в формат для store
+        const storeStructure = this.trackStructure.getAllBlocks().map(block => {
+            return {
+                id: block.id,
+                name: block.name,
+                tonality: block.tonality,
+                chords: block.chords
+            };
+        });
+        
+        // Обновляем store
+        store.setTrackStructure(storeStructure);
+        store.setCurrentBlockIndex(this.trackStructure.currentBlockIndex);
+        
+        // Сбрасываем флаг
+        this.isExporting = false;
+    }
+    
+    // Получение текущей структуры
+    getTrackStructure() {
+        return this.trackStructure;
+    }
+    
+    // Получение индекса текущего блока
+    getCurrentBlockIndex() {
+        return this.trackStructure.currentBlockIndex;
+    }
+    
+    // Добавление нового блока
+    addNewBlock(tonality) {
+        // Если тональность не указана, используем текущую
+        const blockTonality = tonality || store.getCurrentTonality();
+        
+        // Генерируем имя для нового блока
+        const blockName = this.trackStructure.generateNextBlockName();
+        
+        // Создаем новый блок
+        const newBlock = new TrackBlock(
+            'block_' + Date.now(),
+            blockName,
+            blockTonality,
+            []
+        );
+        
+        // Добавляем блок в структуру
+        this.trackStructure.addBlock(newBlock);
+        
+        // Устанавливаем новый блок как текущий
+        const newIndex = this.trackStructure.blocks.length - 1;
+        this.trackStructure.setCurrentBlockIndex(newIndex);
+        
+        // Обновляем store
+        this.exportToStore();
+        
+        // Очищаем последовательность
+        store.clearSequence();
+        
+        // Публикуем событие
+        eventBus.publish('blockAdded', {
+            block: newBlock,
+            index: newIndex
+        });
+        
+        // Возвращаем индекс нового блока
+        return newIndex;
+    }
+    
+    // Удаление блока
+    removeBlock(index) {
+        // Проверка, что это не последний блок
+        if (this.trackStructure.blocks.length <= 1) {
+            console.warn('Невозможно удалить последний блок');
+            return false;
         }
-        break;
         
-      // Sequence changed (auto-save to current block)
-      case 'sequence':
-        // Skip if change came from loading block
-        if (this.isLoading) break;
+        // Сохраняем блок для события
+        const removedBlock = this.trackStructure.getBlockAt(index);
         
-        // Auto-save to current block
-        this.saveSequenceToBlock();
-        break;
+        // Удаляем блок
+        this.trackStructure.removeBlock(index);
+        
+        // Обновляем store
+        this.exportToStore();
+        
+        // Загружаем аккорды текущего блока
+        this.loadBlockSequence(this.trackStructure.currentBlockIndex);
+        
+        // Публикуем событие
+        eventBus.publish('blockRemoved', {
+            block: removedBlock,
+            index: index
+        });
+        
+        return true;
     }
-  }
+    
+    // Дублирование блока
+    duplicateBlock(index) {
+        // Дублируем блок
+        const newIndex = this.trackStructure.duplicateBlock(index);
+        
+        // Проверяем успешность операции
+        if (newIndex === -1) {
+            return -1;
+        }
+        
+        // Обновляем store
+        this.exportToStore();
+        
+        // Загружаем аккорды нового блока
+        this.loadBlockSequence(newIndex);
+        
+        // Публикуем событие
+        eventBus.publish('blockDuplicated', {
+            originalIndex: index,
+            newIndex: newIndex,
+            block: this.trackStructure.getBlockAt(newIndex)
+        });
+        
+        return newIndex;
+    }
+    
+    // Переименование блока
+    renameBlock(index, newName) {
+        // Валидация формата имени
+        if (!/^[A-Z][1-9](\d*)$/.test(newName)) {
+            console.error('Некорректный формат имени блока. Должно быть буква+цифра (A1, B2)');
+            return false;
+        }
+        
+        // Сохраняем старое имя для события
+        const oldName = this.trackStructure.getBlockAt(index)?.name;
+        
+        // Переименовываем блок
+        const success = this.trackStructure.renameBlock(index, newName);
+        
+        if (success) {
+            // Обновляем store
+            this.exportToStore();
+            
+            // Публикуем событие
+            eventBus.publish('blockRenamed', {
+                index: index,
+                oldName: oldName,
+                newName: newName
+            });
+        }
+        
+        return success;
+    }
+    
+    // Изменение тональности блока
+    changeBlockTonality(index, newTonality, fromUI = false) {
+        // Сохраняем старую тональность для события
+        const oldTonality = this.trackStructure.getBlockAt(index)?.tonality;
+        
+        // Меняем тональность
+        const success = this.trackStructure.changeBlockTonality(index, newTonality);
+        
+        if (success) {
+            // Обновляем store
+            this.exportToStore();
+            
+            // Если это текущий блок и изменение не пришло из UI,
+            // обновляем тональность в приложении
+            if (index === this.trackStructure.currentBlockIndex && !fromUI) {
+                if (store.getCurrentTonality() !== newTonality) {
+                    store.setCurrentTonality(newTonality);
+                }
+            }
+            
+            // Публикуем событие
+            eventBus.publish('blockTonalityChanged', {
+                index: index,
+                oldTonality: oldTonality,
+                newTonality: newTonality
+            });
+        }
+        
+        return success;
+    }
+    
+    // Сохранение текущей последовательности в блок
+    saveSequenceToBlock(index = null) {
+        // Если индекс не указан, используем текущий
+        const blockIndex = index !== null ? index : this.trackStructure.currentBlockIndex;
+        
+        // Получаем текущую последовательность
+        const sequence = store.getSequence();
+        
+        // Получаем блок
+        const block = this.trackStructure.getBlockAt(blockIndex);
+        if (!block) {
+            return false;
+        }
+        
+        // Обновляем аккорды блока
+        block.chords = [...sequence];
+        
+        // Обновляем store
+        this.exportToStore();
+        
+        // Публикуем событие
+        eventBus.publish('sequenceSavedToBlock', {
+            index: blockIndex,
+            sequence: sequence
+        });
+        
+        return true;
+    }
+    
+    // Загрузка последовательности из блока
+    loadBlockSequence(index) {
+        // Проверяем существование блока
+        const block = this.trackStructure.getBlockAt(index);
+        if (!block) {
+            return false;
+        }
+        
+        // Устанавливаем флаг загрузки
+        this.isLoading = true;
+        
+        // Обновляем индекс текущего блока
+        this.trackStructure.setCurrentBlockIndex(index);
+        
+        // Обновляем store
+        store.setCurrentBlockIndex(index);
+        store.setSequence(block.chords || []);
+        
+        // Если тональность отличается от текущей, обновляем её
+        if (block.tonality !== store.getCurrentTonality()) {
+            store.setCurrentTonality(block.tonality);
+        }
+        
+        // Сбрасываем флаг загрузки
+        this.isLoading = false;
+        
+        // Публикуем событие
+        eventBus.publish('blockSequenceLoaded', {
+            index: index,
+            block: block
+        });
+        
+        return true;
+    }
+    
+    // Очистка текущего блока
+    clearCurrentBlock() {
+        const index = this.trackStructure.currentBlockIndex;
+        
+        // Получаем блок
+        const block = this.trackStructure.getBlockAt(index);
+        if (!block) {
+            return false;
+        }
+        
+        // Очищаем аккорды блока
+        block.chords = [];
+        
+        // Обновляем store
+        this.exportToStore();
+        store.clearSequence();
+        
+        // Публикуем событие
+        eventBus.publish('blockCleared', {
+            index: index
+        });
+        
+        return true;
+    }
+    
+    // Обработка изменений в store
+    handleStoreChanges(state, changedProp) {
+        switch (changedProp) {
+            // Изменение структуры в store
+            case 'trackStructure':
+                // Пропускаем, если изменение пришло из этого сервиса
+                if (this.isExporting) break;
+                
+                // Импортируем новую структуру
+                this.importFromStore(state.trackStructure);
+                break;
+                
+            // Изменение индекса текущего блока
+            case 'currentBlockIndex':
+                // Обновляем модель
+                if (this.trackStructure) {
+                    this.trackStructure.currentBlockIndex = state.currentBlockIndex;
+                }
+                break;
+                
+            // Изменение последовательности (авто-сохранение в текущий блок)
+            case 'sequence':
+                // Пропускаем, если изменение пришло от загрузки блока
+                if (this.isLoading) break;
+                
+                // Авто-сохранение в текущий блок
+                this.saveSequenceToBlock();
+                break;
+        }
+    }
 }
 
-// Create singleton instance
+// Создаем синглтон сервис
 const trackStructureService = new TrackStructureService();
 
 export default trackStructureService;
