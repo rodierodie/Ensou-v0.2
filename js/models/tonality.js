@@ -281,3 +281,5 @@ class Tonality {
   const tonalityCollection = new TonalityCollection();
   
   export { Tonality, tonalityCollection };
+
+  

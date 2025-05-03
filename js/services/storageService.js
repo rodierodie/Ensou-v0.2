@@ -298,3 +298,136 @@ class StorageService {
 const storageService = new StorageService(store);
 
 export default storageService;
+
+// js/services/storageService.js - дополнения для работы с блоками
+
+// Метод для экспорта проекта в файл
+export function exportProjectToFile() {
+  try {
+    // Получаем текущую структуру трека и настройки
+    const trackStructure = store.getTrackStructure();
+    const currentTonality = store.getCurrentTonality();
+    const tempo = store.getTempo();
+    const arpeggiatorSettings = audioService.getArpeggiatorSettings();
+    
+    // Формируем данные проекта
+    const projectData = {
+      version: '0.2.0',
+      name: 'ChordPlayer Project',
+      date: new Date().toISOString(),
+      settings: {
+        tempo,
+        arpeggiatorSettings
+      },
+      currentTonality,
+      trackStructure
+    };
+    
+    // Преобразуем в JSON
+    const jsonData = JSON.stringify(projectData, null, 2);
+    
+    // Создаем имя файла
+    const date = new Date();
+    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+    const fileName = `chordplayer_project_${dateStr}.json`;
+    
+    // Создаем и загружаем файл
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    
+    // Очищаем ресурсы
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+    
+    return true;
+  } catch (error) {
+    console.error('Error exporting project to file:', error);
+    return false;
+  }
+}
+
+// Метод для импорта проекта из файла
+export function importProjectFromFile(file) {
+  return new Promise((resolve, reject) => {
+    // Проверяем тип файла
+    if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+      reject(new Error('Invalid file type. Only JSON files are supported.'));
+      return;
+    }
+    
+    // Создаем файловый ридер
+    const reader = new FileReader();
+    
+    // Обработчик загрузки
+    reader.onload = (event) => {
+      try {
+        // Парсим JSON данные
+        const projectData = JSON.parse(event.target.result);
+        
+        // Проверяем версию и структуру данных
+        if (!projectData.trackStructure || !projectData.currentTonality) {
+          reject(new Error('Invalid project file format.'));
+          return;
+        }
+        
+        // Обновляем структуру трека в store
+        store.setTrackStructure(projectData.trackStructure);
+        store.setCurrentTonality(projectData.currentTonality);
+        
+        // Если есть настройки темпа, обновляем их
+        if (projectData.settings && projectData.settings.tempo) {
+          store.setTempo(projectData.settings.tempo);
+        }
+        
+        // Если есть настройки арпеджиатора, обновляем их
+        if (projectData.settings && projectData.settings.arpeggiatorSettings) {
+          audioService.saveArpeggiatorSettings(projectData.settings.arpeggiatorSettings);
+        }
+        
+        // Загружаем секвенсор из текущего блока
+        loadSequenceFromCurrentBlock();
+        
+        resolve(true);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    // Обработчик ошибок
+    reader.onerror = (error) => {
+      reject(error);
+    };
+    
+    // Читаем файл
+    reader.readAsText(file);
+  });
+}
+
+// Вспомогательный метод для загрузки секвенсора из текущего блока
+function loadSequenceFromCurrentBlock() {
+  const { trackStructure, currentBlockIndex } = store.state;
+  
+  // Проверяем существование текущего блока
+  if (!trackStructure || 
+      !Array.isArray(trackStructure) || 
+      currentBlockIndex < 0 || 
+      currentBlockIndex >= trackStructure.length) {
+    return;
+  }
+  
+  // Получаем текущий блок
+  const currentBlock = trackStructure[currentBlockIndex];
+  
+  // Загружаем секвенсор
+  store.setState({
+    sequence: currentBlock.chords || []
+  });
+}

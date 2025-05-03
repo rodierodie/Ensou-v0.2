@@ -4,6 +4,8 @@
  */
 
 import store from '../core/store.js';
+import { chordCollection } from '../models/chord.js';
+import eventBus from '../core/eventBus.js';
 
 class AudioService {
   constructor() {
@@ -33,7 +35,8 @@ class AudioService {
     // Arpeggiator state
     this.arpeggiator = {
       sequence: null,
-      isPlaying: false
+      isPlaying: false,
+      settings: this.loadArpeggiatorSettings()
     };
     
     // Flag to track initialization
@@ -146,16 +149,16 @@ class AudioService {
    * @param {string} chordName - Name of the chord to play
    */
   playChordNormal(chordName) {
-    // Get chord data from the store system
-    const chordData = this.getChordData(chordName);
+    // Get chord data
+    const chord = this.getChordData(chordName);
     
-    if (!chordData) {
+    if (!chord) {
       console.error(`Chord data not found for: ${chordName}`);
       return;
     }
     
     // Check for valid notes
-    const notes = chordData.notes;
+    const notes = chord.notes;
     if (!notes || notes.length === 0) {
       console.error(`No notes found for chord: ${chordName}`);
       return;
@@ -171,20 +174,19 @@ class AudioService {
    */
   playArpeggio(chordName) {
     // Get chord data
-    const chordData = this.getChordData(chordName);
+    const chord = this.getChordData(chordName);
     
-    if (!chordData) {
+    if (!chord) {
       console.error(`Chord data not found for: ${chordName}`);
       return;
     }
     
-    // Get arpeggiator settings - these could come from the store 
-    // or a dedicated arpeggiator settings module
-    const settings = this.getArpeggiatorSettings();
+    // Get arpeggiator settings
+    const settings = this.arpeggiator.settings;
     
     // Generate arpeggio notes based on settings
     const arpNotes = this.generateArpeggioNotes(
-      chordData.notes, 
+      chord.notes, 
       settings.pattern, 
       settings.octaveRange,
       settings.octaveOffset
@@ -314,6 +316,27 @@ class AudioService {
         }
         break;
         
+      case 'downup':
+        // Down and up pattern
+        for (let octave = octaveRange - 1; octave >= 0; octave--) {
+          [...notes].reverse().forEach(note => {
+            result.push(`${note.noteName}${note.octave + octave}`);
+          });
+        }
+        
+        // Add ascending part (without repeating top and bottom notes)
+        for (let octave = 0; octave < octaveRange; octave++) {
+          notes.forEach((note, index) => {
+            // Skip first note of lowest octave and last note of highest octave
+            if ((octave === 0 && index === 0) || 
+                (octave === octaveRange - 1 && index === notes.length - 1)) {
+              return;
+            }
+            result.push(`${note.noteName}${note.octave + octave}`);
+          });
+        }
+        break;
+        
       case 'random':
         // Random pattern - collect all possible notes
         const allNotes = [];
@@ -340,20 +363,61 @@ class AudioService {
   }
   
   /**
-   * Get arpeggiator settings
+   * Load arpeggiator settings from localStorage
    * @returns {Object} Arpeggiator settings
    */
-  getArpeggiatorSettings() {
-    // These settings could be stored in the store or in a dedicated module
-    // For now, we use default settings
-    return {
+  loadArpeggiatorSettings() {
+    // Default settings
+    const defaultSettings = {
+      enabled: false,
       pattern: 'up',
       octaveRange: 1,
       octaveOffset: 0,
-      noteLength: '8n', // Eighth notes
-      velocity: 0.7,     // Volume level (0-1)
-      accentFirst: true  // Accent first note of pattern
+      noteLength: '8n',
+      velocity: 0.7,
+      accentFirst: true
     };
+    
+    try {
+      const savedSettings = localStorage.getItem('arpeggiatorSettings');
+      if (savedSettings) {
+        return { ...defaultSettings, ...JSON.parse(savedSettings) };
+      }
+    } catch (e) {
+      console.warn('Error loading arpeggiator settings:', e);
+    }
+    
+    return defaultSettings;
+  }
+  
+  /**
+   * Save arpeggiator settings to localStorage
+   * @param {Object} settings - Settings to save
+   */
+  saveArpeggiatorSettings(settings) {
+    // Update local settings
+    this.arpeggiator.settings = {
+      ...this.arpeggiator.settings,
+      ...settings
+    };
+    
+    try {
+      localStorage.setItem('arpeggiatorSettings', JSON.stringify(this.arpeggiator.settings));
+      console.log('Arpeggiator settings saved');
+      
+      // Publish settings changed event
+      eventBus.publish('arpeggiatorSettingsChanged', this.arpeggiator.settings);
+    } catch (e) {
+      console.error('Error saving arpeggiator settings:', e);
+    }
+  }
+  
+  /**
+   * Get current arpeggiator settings
+   * @returns {Object} Current settings
+   */
+  getArpeggiatorSettings() {
+    return { ...this.arpeggiator.settings };
   }
   
   /**
@@ -430,6 +494,12 @@ class AudioService {
     
     // Update isPlaying state in store
     store.setIsPlaying(true);
+    
+    // Publish sequence playing started event
+    eventBus.publish('sequencePlayingStarted', {
+      sequence: chordsToPlay,
+      tempo: tempo
+    });
   }
   
   /**
@@ -455,6 +525,11 @@ class AudioService {
     
     // Skip playing if it's a pause or block divider
     if (chordName === 'PAUSE' || chordName === 'BLOCK_DIVIDER') {
+      // Publish chord playing event even for pauses
+      eventBus.publish('chordPlaying', {
+        chordName: chordName,
+        index: this.sequencer.currentIndex
+      });
       return;
     }
     
@@ -467,6 +542,12 @@ class AudioService {
     } else {
       this.playChordNormal(chordName);
     }
+    
+    // Publish chord playing event
+    eventBus.publish('chordPlaying', {
+      chordName: chordName,
+      index: this.sequencer.currentIndex
+    });
   }
   
   /**
@@ -492,6 +573,9 @@ class AudioService {
     
     // Update isPlaying state in store
     store.setIsPlaying(false);
+    
+    // Publish sequence playing stopped event
+    eventBus.publish('sequencePlayingStopped');
   }
   
   /**
@@ -525,6 +609,12 @@ class AudioService {
       
       // Increment count
       this.metronome.count++;
+      
+      // Publish metronome beat event
+      eventBus.publish('metronomeBeat', {
+        beat: beat,
+        count: this.metronome.count
+      });
     }, interval);
   }
   
@@ -571,13 +661,18 @@ class AudioService {
   }
   
   /**
-   * Get chord data from the global ChordData
+   * Get chord data from local model or global data
    * @param {string} chordName - Name of the chord
    * @returns {Object|null} Chord data or null if not found
    */
   getChordData(chordName) {
-    // This should be updated to use the modernized chord data system
-    // For now, access the global CHORD_DATA
+    // Try to get from local model first
+    const chord = chordCollection.getChord(chordName);
+    if (chord) {
+      return chord;
+    }
+    
+    // Fallback to global data
     return window.CHORD_DATA ? window.CHORD_DATA[chordName] : null;
   }
   
@@ -604,6 +699,12 @@ class AudioService {
         } else if (!state.metronomeEnabled && this.metronome.isPlaying) {
           this.stopMetronome();
         }
+        break;
+        
+      case 'arpeggiatorEnabled':
+        // Update arpeggiator settings
+        this.arpeggiator.settings.enabled = state.arpeggiatorEnabled;
+        this.saveArpeggiatorSettings({ enabled: state.arpeggiatorEnabled });
         break;
         
       case 'tempo':
@@ -638,6 +739,11 @@ class AudioService {
         if (this.metronome.isPlaying) {
           this.stopMetronome();
           this.startMetronome();
+        }
+        
+        // Update transport tempo
+        if (Tone.Transport) {
+          Tone.Transport.bpm.value = state.tempo;
         }
         break;
     }
