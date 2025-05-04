@@ -6,6 +6,8 @@
 import Component from '../component.js';
 import store from '../../core/store.js';
 import audioService from '../../services/audioService.js';
+import { chordCollection } from '../../models/chord.js';
+import eventBus from '../../core/eventBus.js';
 
 class SequenceComponent extends Component {
   /**
@@ -43,7 +45,7 @@ class SequenceComponent extends Component {
       ['sequence', 'isPlaying']);
     
     // Subscribe to events
-    this.subscribeToEvent('chordPlaying', this.handleChordPlaying);
+    this.subscribeToEvent('chordPlaying', this.handleChordPlaying.bind(this));
     
     // Initialize sequence from store
     this.sequence = store.getSequence() || [];
@@ -156,15 +158,15 @@ class SequenceComponent extends Component {
     }
     
     // Get chord data and current tonality
-    const chord = window.CHORD_DATA ? window.CHORD_DATA[chordName] : null;
+    const chord = chordCollection.getChord(chordName);
     const tonality = store.getCurrentTonality();
     
-    if (!chord || !chord.functions || !chord.functions[tonality]) {
+    if (!chord || !chord.functions || !chord.getFunctionInTonality(tonality)) {
       return null;
     }
     
     // Get chord function
-    const chordFunction = chord.functions[tonality].function;
+    const chordFunction = chord.getFunctionInTonality(tonality).function;
     
     // Create icon
     const functionIcon = this.createElement('span', {

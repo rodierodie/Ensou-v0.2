@@ -1,32 +1,34 @@
 /**
  * exportService.js
- * Service for exporting chord sequences to MIDI and text
+ * Modernized service for exporting chord sequences to MIDI and text
  */
 
 import store from '../core/store.js';
+import { chordCollection } from '../models/chord.js';
+import { tonalityCollection } from '../models/tonality.js';
 
 class ExportService {
   constructor() {
-    // Проверяем доступность библиотеки MidiWriter
+    // Check if MidiWriter is available
     this.midiWriterAvailable = typeof MidiWriter !== 'undefined';
     
     if (!this.midiWriterAvailable) {
-      console.warn('Библиотека MidiWriter не загружена. Экспорт MIDI будет недоступен.');
+      console.warn('MidiWriter library not loaded. MIDI export will be unavailable.');
     }
   }
   
   /**
-   * Экспорт текущей последовательности в MIDI
-   * @param {boolean} exportFullTrack - Экспортировать весь трек вместо текущей последовательности
+   * Export current sequence to MIDI
+   * @param {boolean} exportFullTrack - Export full track instead of current sequence
    */
   exportToMidi(exportFullTrack = false) {
-    // Проверяем доступность MidiWriter
+    // Check if MidiWriter is available
     if (!this.midiWriterAvailable) {
-      alert('Библиотека MidiWriter не загружена. Экспорт MIDI недоступен.');
+      alert('MidiWriter library not loaded. MIDI export unavailable.');
       return;
     }
     
-    // Получаем данные для экспорта
+    // Get data to export
     let sequence;
     if (exportFullTrack) {
       sequence = this.getFullTrackSequence();
@@ -34,43 +36,43 @@ class ExportService {
       sequence = store.getSequence();
     }
     
-    // Проверяем, есть ли аккорды для экспорта
+    // Check if there are chords to export
     if (!sequence || sequence.length === 0) {
-      alert('Нет аккордов для экспорта');
+      alert('No chords to export');
       return;
     }
     
-    // Получаем темп
+    // Get tempo
     const tempo = store.getTempo();
     
-    // Создаем MIDI-файл
+    // Create MIDI file
     try {
       const midiData = this.createMidiFile(sequence, tempo);
       this.downloadMidiFile(midiData, exportFullTrack);
     } catch (error) {
-      console.error('Ошибка создания MIDI-файла:', error);
-      alert('Ошибка создания MIDI-файла');
+      console.error('Error creating MIDI file:', error);
+      alert('Error creating MIDI file');
     }
   }
   
   /**
-   * Создание MIDI-файла из последовательности
-   * @param {Array} sequence - Массив аккордов
-   * @param {number} tempo - Темп в BPM
-   * @returns {Uint8Array} Данные MIDI-файла
+   * Create MIDI file from sequence
+   * @param {Array} sequence - Array of chord names
+   * @param {number} tempo - Tempo in BPM
+   * @returns {Uint8Array} MIDI file data
    */
   createMidiFile(sequence, tempo) {
-    // Создаем дорожку
+    // Create track
     const track = new MidiWriter.Track();
     
-    // Устанавливаем темп
+    // Set tempo
     track.setTempo(tempo);
     
-    // Обрабатываем каждый аккорд в последовательности
+    // Process each chord in sequence
     sequence.forEach(chordName => {
-      // Обрабатываем специальные маркеры
+      // Handle special markers
       if (chordName === 'PAUSE') {
-        // Добавляем паузу (половинная нота)
+        // Add pause (half note)
         track.addEvent(new MidiWriter.NoteEvent({
           wait: '0',
           duration: '2',
@@ -81,7 +83,7 @@ class ExportService {
       }
       
       if (chordName === 'BLOCK_DIVIDER') {
-        // Добавляем короткую паузу для разделителя блоков
+        // Add short pause for block divider
         track.addEvent(new MidiWriter.NoteEvent({
           wait: '0',
           duration: '4',
@@ -91,78 +93,78 @@ class ExportService {
         return;
       }
       
-      // Получаем данные аккорда
-      const chord = this.getChordData(chordName);
+      // Get chord data from collection
+      const chord = chordCollection.getChord(chordName);
       if (!chord) {
-        console.warn(`Данные аккорда не найдены для: ${chordName}`);
+        console.warn(`Chord data not found for: ${chordName}`);
         return;
       }
       
-      // Преобразуем ноты в MIDI-формат
+      // Convert notes to MIDI format
       const midiNotes = this.convertNotesToMidi(chord.notes);
       
-      // Создаем событие ноты
+      // Create note event
       const noteEvent = new MidiWriter.NoteEvent({
         pitch: midiNotes,
-        duration: '2', // Половинная нота
-        velocity: 80   // Громкость (0-100)
+        duration: '2', // Half note
+        velocity: 80   // Volume (0-100)
       });
       
-      // Добавляем в дорожку
+      // Add to track
       track.addEvent(noteEvent);
     });
     
-    // Создаем запись
+    // Create writer
     const writer = new MidiWriter.Writer(track);
     
-    // Возвращаем двоичные данные
+    // Return binary data
     return writer.buildFile();
   }
   
   /**
-   * Преобразование нот в MIDI-формат
-   * @param {Array} notes - Массив нот (например, ['C4', 'E4', 'G4'])
-   * @returns {Array} Ноты в MIDI-формате
+   * Convert notes to MIDI format
+   * @param {Array} notes - Array of notes (e.g. ['C4', 'E4', 'G4'])
+   * @returns {Array} MIDI format notes
    */
   convertNotesToMidi(notes) {
     return notes.map(note => {
-      // Просто возвращаем ноту как есть, т.к. MidiWriter ожидает этот формат
+      // Just return note as is, as MidiWriter expects this format
       return note;
     });
   }
   
   /**
-   * Скачивание MIDI-файла
-   * @param {Uint8Array} midiData - Двоичные данные MIDI-файла
-   * @param {boolean} isFullTrack - Флаг полного трека
+   * Download MIDI file
+   * @param {Uint8Array} midiData - MIDI file binary data
+   * @param {boolean} isFullTrack - Full track flag
    */
   downloadMidiFile(midiData, isFullTrack) {
-    // Получаем текущую тональность для имени файла
+    // Get current tonality for filename
     const tonality = store.getCurrentTonality();
     
-    // Создаем имя файла с текущей датой
+    // Create filename with current date
     const date = new Date();
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
     const fileName = isFullTrack ? 
       `track_${dateStr}.mid` : 
       `chord_sequence_${tonality}_${dateStr}.mid`;
     
-    // Создаем Blob
+    // Create blob
     const blob = new Blob([midiData], { type: 'audio/midi' });
     
-    // Создаем URL для скачивания
+    // Create download URL
     const url = URL.createObjectURL(blob);
     
-    // Создаем ссылку для скачивания
+    // Create download link
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName;
     
-    // Запускаем скачивание
+    // Trigger download
     document.body.appendChild(a);
     a.click();
     
-    // Очищаем ресурсы
+    // Clean up
     setTimeout(() => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
@@ -170,11 +172,11 @@ class ExportService {
   }
   
   /**
-   * Экспорт текущей последовательности в текстовый формат
-   * @param {boolean} exportFullTrack - Экспортировать весь трек вместо текущей последовательности
+   * Export current sequence to text
+   * @param {boolean} exportFullTrack - Export full track instead of current sequence
    */
   exportToText(exportFullTrack = false) {
-    // Получаем данные для экспорта
+    // Get data to export
     let content;
     if (exportFullTrack) {
       content = this.createFullTrackText();
@@ -182,28 +184,28 @@ class ExportService {
       content = this.createSequenceText();
     }
     
-    // Показываем диалог с текстом
+    // Show text export dialog
     this.showTextExportDialog(content);
   }
   
   /**
-   * Создание текстового представления текущей последовательности
-   * @returns {string} Текстовое представление
+   * Create text representation of current sequence
+   * @returns {string} Text representation
    */
   createSequenceText() {
-    // Получаем текущую последовательность и тональность
+    // Get current sequence and tonality
     const sequence = store.getSequence();
-    const tonality = store.getCurrentTonality();
+    const tonalityCode = store.getCurrentTonality();
     
-    // Получаем информацию о тональности
-    const tonalityInfo = window.TONALITY_DATA ? window.TONALITY_DATA[tonality] : null;
-    const tonalityName = tonalityInfo ? tonalityInfo.name : tonality;
+    // Get tonality information from collection
+    const tonality = tonalityCollection.getTonality(tonalityCode);
+    const tonalityName = tonality ? tonality.name : tonalityCode;
     
-    // Создаем заголовок
+    // Create header
     let text = `Аккордовая последовательность в тональности ${tonalityName}\n`;
     text += '─'.repeat(50) + '\n\n';
     
-    // Добавляем аккорды (по 8 в строке)
+    // Add chords (8 per line)
     if (sequence && sequence.length > 0) {
       const chordsPerLine = 8;
       for (let i = 0; i < sequence.length; i += chordsPerLine) {
@@ -215,34 +217,34 @@ class ExportService {
       text += 'Последовательность пуста\n';
     }
     
-    // Добавляем информацию о функциях аккордов
+    // Add chord function information
     text += '\n' + '─'.repeat(50) + '\n';
     text += 'Функциональное значение аккордов:\n\n';
     
     if (sequence && sequence.length > 0) {
-      // Создаем множество для избежания дубликатов
+      // Create set to avoid duplicates
       const processedChords = new Set();
       
       sequence.forEach(chordName => {
-        // Пропускаем паузы и уже обработанные аккорды
+        // Skip pauses and already processed chords
         if (chordName === 'PAUSE' || processedChords.has(chordName)) return;
         
-        // Помечаем аккорд как обработанный
+        // Mark chord as processed
         processedChords.add(chordName);
         
-        // Получаем данные аккорда
-        const chord = this.getChordData(chordName);
+        // Get chord data from collection
+        const chord = chordCollection.getChord(chordName);
         if (!chord) return;
         
-        // Получаем функцию в текущей тональности
-        const func = chord.functions && chord.functions[tonality];
+        // Get function in current tonality
+        const func = chord.functions && chord.functions[tonalityCode];
         if (func) {
           text += `${chordName}: ${func.function} (ступень ${func.degree})\n`;
         }
       });
     }
     
-    // Добавляем информацию о приложении
+    // Add application information
     text += '\n' + '─'.repeat(50) + '\n';
     text += 'Создано в приложении "Изучение музыкальной гармонии"\n';
     
@@ -250,30 +252,30 @@ class ExportService {
   }
   
   /**
-   * Создание текстового представления всего трека
-   * @returns {string} Текстовое представление
+   * Create text representation of full track
+   * @returns {string} Text representation
    */
   createFullTrackText() {
-    // Получаем структуру трека
+    // Get track structure
     const trackStructure = store.getTrackStructure();
     
-    // Создаем заголовок
+    // Create header
     let text = 'СТРУКТУРА ТРЕКА\n';
     text += '═'.repeat(50) + '\n\n';
     
-    // Обрабатываем каждый блок
+    // Process each block
     trackStructure.forEach((block) => {
-      // Заголовок блока
+      // Block header
       text += `БЛОК ${block.name} (${block.tonality})\n`;
       text += '─'.repeat(30) + '\n';
       
-      // Если блок пустой
+      // If block is empty
       if (!block.chords || block.chords.length === 0) {
         text += 'Нет аккордов\n\n';
         return;
       }
       
-      // Добавляем аккорды (по 8 в строке)
+      // Add chords (8 per line)
       const chordsPerLine = 8;
       for (let i = 0; i < block.chords.length; i += chordsPerLine) {
         const line = block.chords.slice(i, i + chordsPerLine);
@@ -281,11 +283,11 @@ class ExportService {
         text += '\n';
       }
       
-      // Добавляем разделитель между блоками
+      // Add separator between blocks
       text += '\n';
     });
     
-    // Добавляем информацию о приложении
+    // Add application information
     text += '═'.repeat(50) + '\n';
     text += 'Создано в приложении "Изучение музыкальной гармонии"\n';
     
@@ -293,11 +295,11 @@ class ExportService {
   }
   
   /**
-   * Показать диалог для экспорта текста
-   * @param {string} text - Текстовое содержимое
+   * Show text export dialog
+   * @param {string} text - Text content
    */
   showTextExportDialog(text) {
-    // Создаем затемнение
+    // Create overlay
     const overlay = document.createElement('div');
     overlay.style.position = 'fixed';
     overlay.style.top = '0';
@@ -310,7 +312,7 @@ class ExportService {
     overlay.style.justifyContent = 'center';
     overlay.style.alignItems = 'center';
     
-    // Создаем диалог
+    // Create dialog
     const dialog = document.createElement('div');
     dialog.style.backgroundColor = 'white';
     dialog.style.borderRadius = '8px';
@@ -320,13 +322,13 @@ class ExportService {
     dialog.style.maxHeight = '80vh';
     dialog.style.overflow = 'auto';
     
-    // Заголовок диалога
+    // Dialog title
     const title = document.createElement('h3');
     title.textContent = 'Экспорт в текст';
     title.style.marginTop = '0';
     dialog.appendChild(title);
     
-    // Текстовое поле с содержимым
+    // Textarea with content
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.width = '100%';
@@ -338,13 +340,13 @@ class ExportService {
     textarea.style.fontFamily = 'monospace';
     dialog.appendChild(textarea);
     
-    // Контейнер для кнопок
+    // Button container
     const buttonContainer = document.createElement('div');
     buttonContainer.style.display = 'flex';
     buttonContainer.style.justifyContent = 'flex-end';
     buttonContainer.style.gap = '10px';
     
-    // Кнопка копирования
+    // Copy button
     const copyButton = document.createElement('button');
     copyButton.textContent = 'Копировать';
     copyButton.addEventListener('click', () => {
@@ -354,7 +356,7 @@ class ExportService {
     });
     buttonContainer.appendChild(copyButton);
     
-    // Кнопка закрытия
+    // Close button
     const closeButton = document.createElement('button');
     closeButton.textContent = 'Закрыть';
     closeButton.addEventListener('click', () => {
@@ -362,37 +364,37 @@ class ExportService {
     });
     buttonContainer.appendChild(closeButton);
     
-    // Добавляем кнопки в диалог
+    // Add buttons to dialog
     dialog.appendChild(buttonContainer);
     
-    // Добавляем диалог в затемнение
+    // Add dialog to overlay
     overlay.appendChild(dialog);
     
-    // Добавляем затемнение на страницу
+    // Add overlay to page
     document.body.appendChild(overlay);
     
-    // Выделяем текст для удобства копирования
+    // Select text for easy copying
     textarea.select();
   }
   
   /**
-   * Получение полной последовательности всего трека
-   * @returns {Array} Комбинированная последовательность
+   * Get full track sequence
+   * @returns {Array} Combined sequence
    */
   getFullTrackSequence() {
-    // Получаем структуру трека
+    // Get track structure
     const trackStructure = store.getTrackStructure();
     
-    // Комбинируем все блоки
+    // Combine all blocks
     const fullSequence = [];
     
     trackStructure.forEach((block, index) => {
-      // Добавляем разделитель блоков, если не первый блок
+      // Add block divider if not first block
       if (index > 0) {
         fullSequence.push('BLOCK_DIVIDER');
       }
       
-      // Добавляем аккорды блока
+      // Add block chords
       if (block.chords && block.chords.length > 0) {
         fullSequence.push(...block.chords);
       }
@@ -400,18 +402,9 @@ class ExportService {
     
     return fullSequence;
   }
-  
-  /**
-   * Получение данных аккорда
-   * @param {string} chordName - Название аккорда
-   * @returns {Object|null} Данные аккорда или null
-   */
-  getChordData(chordName) {
-    return window.CHORD_DATA ? window.CHORD_DATA[chordName] : null;
-  }
 }
 
-// Создаем синглтон
+// Create singleton
 const exportService = new ExportService();
 
 export default exportService;

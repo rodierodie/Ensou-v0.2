@@ -1,28 +1,27 @@
 /**
  * tonalitySelector.js
- * Component for selecting tonality
+ * Modernized component for selecting tonality
  */
 
 import Component from '../component.js';
 import store from '../../core/store.js';
 import { tonalityCollection } from '../../models/tonality.js';
+import eventBus from '../../core/eventBus.js';
 
 class TonalitySelector extends Component {
   /**
-   * Create a new TonalitySelector component
+   * Creates a tonality selector component
    * @param {HTMLElement} container - Container element
    * @param {Object} options - Configuration options
    */
   constructor(container, options = {}) {
-    // Call super first, but disable auto-render until we're ready
-    const combinedOptions = {
+    // Call super with auto-render disabled until we're ready
+    super(container, {
       ...options,
-      autoRender: false // Temporarily disable auto-render
-    };
+      autoRender: false
+    });
     
-    super(container, combinedOptions);
-    
-    // Initialize state after calling super
+    // Initialize state
     this.currentTonality = store.getCurrentTonality() || 'C';
     
     // Default options
@@ -35,12 +34,12 @@ class TonalitySelector extends Component {
     // Subscribe to store changes
     this.subscribeToStore(this.handleStateChange, ['currentTonality']);
     
-    // Now manually render since we disabled auto-render
+    // Now manually render
     this.render();
   }
   
   /**
-   * Render the component
+   * Render component
    */
   render() {
     this.clearContainer();
@@ -66,11 +65,11 @@ class TonalitySelector extends Component {
       onChange: (e) => this.handleRootNoteChange(e)
     });
     
-    // Get available root notes
-    const rootNotes = this.getAvailableRootNotes();
+    // Get available root notes from tonality collection
+    const availableNotes = this.getAvailableRootNotes();
     
     // Add options
-    rootNotes.forEach(note => {
+    availableNotes.forEach(note => {
       const option = this.createElement('option', {
         value: note,
         textContent: this.options.showNames ? `${note} (${this.getNoteFullName(note)})` : note
@@ -122,23 +121,19 @@ class TonalitySelector extends Component {
     const tonalityCode = this.createElement('span', {
       className: 'tonality-code',
       id: 'tonality-code',
-      textContent: this.currentTonality || 'C'
+      textContent: this.currentTonality
     });
     tonalityDisplay.appendChild(tonalityCode);
     
-    // Get tonality info if available
-    try {
-      const tonality = tonalityCollection.getTonality(this.currentTonality);
-      if (tonality) {
-        const tonalityName = this.createElement('span', {
-          className: 'tonality-name',
-          id: 'tonality-name',
-          textContent: `(${tonality.name})`
-        });
-        tonalityDisplay.appendChild(tonalityName);
-      }
-    } catch (error) {
-      console.warn('Error getting tonality info:', error);
+    // Get tonality info from collection
+    const tonality = tonalityCollection.getTonality(this.currentTonality);
+    if (tonality) {
+      const tonalityName = this.createElement('span', {
+        className: 'tonality-name',
+        id: 'tonality-name',
+        textContent: `(${tonality.name})`
+      });
+      tonalityDisplay.appendChild(tonalityName);
     }
     
     dropdownsContainer.appendChild(tonalityDisplay);
@@ -159,16 +154,9 @@ class TonalitySelector extends Component {
     
     if (!rootNoteSelect || !typeSelect) return;
     
-    // Ensure currentTonality is defined before using it
-    if (!this.currentTonality) {
-      this.currentTonality = 'C'; // Set default value
-      return;
-    }
-    
     // Parse tonality code
     let rootNote, type;
     
-    // Safely check if currentTonality is a string and ends with 'm'
     if (typeof this.currentTonality === 'string' && this.currentTonality.endsWith('m')) {
       rootNote = this.currentTonality.slice(0, -1);
       type = 'minor';
@@ -177,7 +165,7 @@ class TonalitySelector extends Component {
       type = 'major';
     }
     
-    // Update selects if values are valid
+    // Update selects
     if (rootNote && this.getAvailableRootNotes().includes(rootNote)) {
       rootNoteSelect.value = rootNote;
     }
@@ -209,6 +197,13 @@ class TonalitySelector extends Component {
     if (this.options.onChange) {
       this.options.onChange(rootNote, type);
     }
+    
+    // Publish event
+    eventBus.publish('tonalityChanged', {
+      tonality: tonalityCode,
+      rootNote: rootNote,
+      type: type
+    });
   }
   
   /**
@@ -233,15 +228,39 @@ class TonalitySelector extends Component {
     if (this.options.onChange) {
       this.options.onChange(rootNote, type);
     }
+    
+    // Publish event
+    eventBus.publish('tonalityChanged', {
+      tonality: tonalityCode,
+      rootNote: rootNote,
+      type: type
+    });
   }
   
   /**
-   * Get available root notes
+   * Get available root notes from tonality collection
    * @returns {Array} Array of available root notes
    */
   getAvailableRootNotes() {
-    // We could get this from tonalityCollection, but for now use a predefined list
-    return ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'F', 'Bb', 'Eb', 'Ab', 'Db'];
+    // Get all tonalities from collection
+    const allTonalities = tonalityCollection.getAllTonalities();
+    
+    // Extract unique root notes
+    const rootNotes = new Set();
+    
+    allTonalities.forEach(tonality => {
+      const rootNote = tonality.getRootNote();
+      if (rootNote) {
+        rootNotes.add(rootNote);
+      }
+    });
+    
+    // Convert to array and sort
+    return Array.from(rootNotes).sort((a, b) => {
+      // Custom sort order for music notes
+      const noteOrder = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'F', 'Bb', 'Eb', 'Ab', 'Db'];
+      return noteOrder.indexOf(a) - noteOrder.indexOf(b);
+    });
   }
   
   /**
@@ -281,19 +300,15 @@ class TonalitySelector extends Component {
     }
     
     if (tonalityNameElement) {
-      try {
-        const tonality = tonalityCollection.getTonality(tonalityCode);
-        if (tonality) {
-          tonalityNameElement.textContent = `(${tonality.name})`;
-        }
-      } catch (error) {
-        console.warn('Error updating tonality name:', error);
+      const tonality = tonalityCollection.getTonality(tonalityCode);
+      if (tonality) {
+        tonalityNameElement.textContent = `(${tonality.name})`;
       }
     }
   }
   
   /**
-   * Handle state changes from the store
+   * Handle state changes from store
    * @param {Object} state - Store state
    * @param {string} changedProp - Changed property
    */

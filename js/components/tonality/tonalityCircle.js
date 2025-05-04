@@ -1,24 +1,27 @@
 /**
  * tonalityCircle.js
- * Component for displaying and interacting with the circle of fifths
+ * Modernized component for displaying and interacting with the circle of fifths
  */
 
 import Component from '../component.js';
 import store from '../../core/store.js';
+import { tonalityCollection } from '../../models/tonality.js';
+import eventBus from '../../core/eventBus.js';
 
 class TonalityCircle extends Component {
   /**
-   * Create a new TonalityCircle component
-   * @param {HTMLElement} container - Container element for the circle
+   * Creates a tonality circle component
+   * @param {HTMLElement} container - Container element
    * @param {Object} options - Configuration options
    */
   constructor(container, options = {}) {
-    // Call super with autoRender disabled until we're ready
+    // Call super with auto-render disabled until we're ready
     super(container, {
       ...options,
       autoRender: false
     });
     
+    // Default options
     this.options = {
       radius: 150,           // Circle radius
       majorRadius: 120,      // Radius for major keys
@@ -40,28 +43,8 @@ class TonalityCircle extends Component {
     };
     
     // Circle of fifths arrangement
-    this.majorKeys = [
-      { note: 'C', angle: 270 },
-      { note: 'G', angle: 300 },
-      { note: 'D', angle: 330 },
-      { note: 'A', angle: 0 },
-      { note: 'E', angle: 30 },
-      { note: 'B', angle: 60 },
-      { note: 'F#', angle: 90 },
-      { note: 'F', angle: 240 },
-      { note: 'Bb', angle: 210 },
-      { note: 'Eb', angle: 180 },
-      { note: 'Ab', angle: 150 },
-      { note: 'Db', angle: 120 }
-    ];
-    
-    // Generate related minor keys
-    this.minorKeys = this.majorKeys.map(majorKey => {
-      return {
-        note: this.getRelativeMinor(majorKey.note),
-        angle: majorKey.angle
-      };
-    });
+    this.majorKeys = [];
+    this.minorKeys = [];
     
     // Get current tonality from store
     const currentTonality = store.getCurrentTonality() || 'C';
@@ -80,18 +63,71 @@ class TonalityCircle extends Component {
     this.selectedNote = note;
     this.selectedType = type;
     
-    // Create SVG element
-    this.createSvgElement();
+    // Initialize component
+    this.init();
     
     // Subscribe to store changes
     this.subscribeToStore(this.handleStateChange, ['currentTonality']);
+  }
+  
+  /**
+   * Initialize component
+   */
+  init() {
+    console.log('Initializing tonality circle component');
     
-    // Now manually render
+    // Initialize circle of fifths data
+    this.initializeCircleData();
+    
+    // Create SVG element
+    this.createSvgElement();
+    
+    // Render circle
     this.render();
   }
   
   /**
-   * Create SVG element for the circle
+   * Initialize circle of fifths data
+   */
+  initializeCircleData() {
+    // Define circle of fifths key arrangement
+    const circleOfFifthsOrder = [
+      { note: 'C', angle: 270 },
+      { note: 'G', angle: 300 },
+      { note: 'D', angle: 330 },
+      { note: 'A', angle: 0 },
+      { note: 'E', angle: 30 },
+      { note: 'B', angle: 60 },
+      { note: 'F#', angle: 90 },
+      { note: 'F', angle: 240 },
+      { note: 'Bb', angle: 210 },
+      { note: 'Eb', angle: 180 },
+      { note: 'Ab', angle: 150 },
+      { note: 'Db', angle: 120 }
+    ];
+    
+    // Filter to only include notes that exist in our tonality collection
+    const availableNotes = new Set();
+    tonalityCollection.getAllTonalities().forEach(tonality => {
+      if (!tonality.isMinor()) {
+        availableNotes.add(tonality.getRootNote());
+      }
+    });
+    
+    // Only include available notes in the circle
+    this.majorKeys = circleOfFifthsOrder.filter(key => availableNotes.has(key.note));
+    
+    // Generate related minor keys
+    this.minorKeys = this.majorKeys.map(majorKey => {
+      return {
+        note: this.getRelativeMinor(majorKey.note),
+        angle: majorKey.angle
+      };
+    });
+  }
+  
+  /**
+   * Create SVG element
    */
   createSvgElement() {
     try {
@@ -99,7 +135,6 @@ class TonalityCircle extends Component {
       this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       this.svg.setAttribute('viewBox', '0 0 300 300');
       this.svg.setAttribute('width', '100%');
-      // Use a fixed height instead of 'auto'
       this.svg.setAttribute('height', '300px');
       this.svg.setAttribute('class', 'tonality-circle');
       
@@ -111,11 +146,11 @@ class TonalityCircle extends Component {
   }
   
   /**
-   * Render the component
+   * Render component
    */
   render() {
     try {
-      // Render the circle of fifths
+      // Render circle of fifths
       this.renderCircle();
     } catch (error) {
       console.error('Error rendering tonality circle:', error);
@@ -123,7 +158,7 @@ class TonalityCircle extends Component {
   }
   
   /**
-   * Render the circle of fifths
+   * Render circle of fifths
    */
   renderCircle() {
     // Clear existing content
@@ -235,7 +270,7 @@ class TonalityCircle extends Component {
     noteText.setAttribute('fill', this.options.textColor);
     noteText.textContent = type === 'minor' ? key.note + 'm' : key.note;
     
-    // Add click handler
+    // Add click handler (need to use addEventListener for SVG elements)
     noteGroup.addEventListener('click', () => {
       this.handleNoteClick(key.note, type);
     });
@@ -264,6 +299,13 @@ class TonalityCircle extends Component {
     
     // Update circle visually
     this.renderCircle();
+    
+    // Publish event
+    eventBus.publish('tonalityCircleSelected', {
+      note: note,
+      type: type,
+      tonality: tonalityCode
+    });
     
     // Trigger callback if provided
     if (this.options.onSelect) {
@@ -301,13 +343,14 @@ class TonalityCircle extends Component {
    * @returns {string} Relative minor note
    */
   getRelativeMinor(majorNote) {
-    const noteMap = {
+    // Map of major keys to their relative minors
+    const relativeMinors = {
       'C': 'A', 'G': 'E', 'D': 'B', 'A': 'F#',
       'E': 'C#', 'B': 'G#', 'F#': 'D#',
       'F': 'D', 'Bb': 'G', 'Eb': 'C', 'Ab': 'F', 'Db': 'Bb'
     };
     
-    return noteMap[majorNote] || majorNote;
+    return relativeMinors[majorNote] || majorNote;
   }
   
   /**
@@ -328,14 +371,15 @@ class TonalityCircle extends Component {
   }
   
   /**
-   * Handle state changes from the store
-   * @param {Object} state - Application state
-   * @param {string} changedProp - Property that changed
+   * Handle state changes from store
+   * @param {Object} state - Store state
+   * @param {string} changedProp - Changed property
    */
   handleStateChange(state, changedProp) {
     if (changedProp === 'currentTonality') {
       // Parse tonality code to get note and type
       let note, type;
+      
       if (typeof state.currentTonality === 'string' && state.currentTonality.endsWith('m')) {
         note = state.currentTonality.slice(0, -1);
         type = 'minor';

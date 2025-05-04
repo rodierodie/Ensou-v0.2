@@ -1,164 +1,150 @@
 /**
  * appInitializer.js
- * Utility для инициализации приложения с модернизированными компонентами
+ * Modernized utility for application initialization
  */
 
 import store from './store.js';
 import eventBus from './eventBus.js';
-import { initializeBridgeAdapter, ensureGlobalData } from './bridgeAdapter.js';
 import audioService from '../services/audioService.js';
 import storageService from '../services/storageService.js';
 import exportService from '../services/exportService.js';
+import initializeDataModels, { createGlobalProxies } from '../models/initializeData.js';
 
-// Импорт модернизированных компонентов
+// Import modernized components
 import AudioPlayer from '../components/audio/audioPlayer.js';
 import MetronomeControl from '../components/audio/metronomeControl.js';
 import TonalitySelector from '../components/tonality/tonalitySelector.js';
 import TonalityCircle from '../components/tonality/tonalityCircle.js';
 import ModernChordSelector from '../components/chords/modernChordSelector.js';
 import ModernChordInfo from '../components/chords/modernChordInfo.js';
-import ChordSuggestions from '../components/chords/chordSuggestions.js';
 import ModernSequencer from '../components/sequencer/modernSequencer.js';
 import TrackStructureManager from '../components/track/trackStructureManager.js';
 import Arpeggiator from '../components/arpeggiator/arpeggiator.js';
 
 class AppInitializer {
   /**
-   * Инициализация приложения
-   * @returns {Promise} Промис завершения инициализации
+   * Initialize application
+   * @returns {Promise} Promise resolving when initialization completes
    */
   static async initialize() {
     try {
-      console.log('Начало инициализации приложения...');
+      console.log('Starting application initialization...');
       
-      // Инициализация моделей данных
+      // Initialize data models first
       await this.initializeDataModels();
       
-      // Обеспечиваем наличие глобальных данных для обратной совместимости
-      ensureGlobalData();
+      // Create global proxies for backward compatibility if needed
+      // Comment this out once full migration is complete
+      createGlobalProxies();
       
-      // Инициализация мостового адаптера
-      initializeBridgeAdapter();
-      
-      // Инициализация аудио сервиса
+      // Initialize audio service
       await audioService.initialize();
       
-      // Загрузка сохраненных данных
+      // Load saved data
       storageService.loadData();
       
-      // Создание компонентов UI
+      // Create UI components
       this.createComponents();
       
-      // Настройка обработчиков событий
+      // Set up event listeners
       this.setupEventListeners();
       
-      console.log('Приложение успешно инициализировано');
+      console.log('Application successfully initialized');
       
-      // Публикуем событие успешной инициализации
+      // Publish initialization complete event
       eventBus.publish('appInitialized', {
         timestamp: Date.now()
       });
       
       return true;
     } catch (error) {
-      console.error('Ошибка инициализации приложения:', error);
-      this.showErrorNotification('Ошибка инициализации приложения. Попробуйте перезагрузить страницу.');
+      console.error('Error initializing application:', error);
+      this.showErrorNotification('Error initializing application. Please try reloading the page.');
       return false;
     }
   }
   
   /**
-   * Инициализация моделей данных
-   * @returns {Promise} Промис завершения инициализации моделей
+   * Initialize data models
+   * @returns {Promise} Promise resolving when data models are initialized
    */
   static async initializeDataModels() {
-    // Динамически импортируем и инициализируем модели
     try {
-      const { default: initializeDataModels } = await import('../models/initializeData.js');
+      // Initialize data models
       await initializeDataModels();
+      return true;
     } catch (error) {
-      console.error('Ошибка инициализации моделей данных:', error);
+      console.error('Error initializing data models:', error);
       throw error;
     }
-    
-    return true;
   }
   
   /**
-   * Создание и инициализация UI компонентов
+   * Create and initialize UI components
    */
   static createComponents() {
-    // Компоненты аудио
+    // Audio components
     const audioControlsContainer = document.getElementById('audio-controls');
     if (audioControlsContainer) {
       new AudioPlayer(audioControlsContainer);
     }
     
-    const metronomeContainer = document.getElementById('metronome-container');
+    const metronomeContainer = document.querySelector('.metronome-toggle');
     if (metronomeContainer) {
       new MetronomeControl(metronomeContainer);
     }
     
-    // Компоненты тональности
+    // Tonality components
     const tonalitySelectorContainer = document.getElementById('tonality-selector-container');
-    const tonalityCircleContainer = document.getElementById('tonality-circle-container');
-    
     if (tonalitySelectorContainer) {
       new TonalitySelector(tonalitySelectorContainer);
     }
     
+    const tonalityCircleContainer = document.getElementById('tonality-circle-container');
     if (tonalityCircleContainer) {
       new TonalityCircle(tonalityCircleContainer);
     }
     
-    // Компоненты аккордов
+    // Chord components
     const basicChordsContainer = document.getElementById('basic-chords');
     const seventhChordsContainer = document.getElementById('seventh-chords');
-    const chordInfoContainer = document.getElementById('chord-info-section');
-    
     if (basicChordsContainer && seventhChordsContainer) {
       new ModernChordSelector(basicChordsContainer, seventhChordsContainer);
     }
     
+    const chordInfoContainer = document.getElementById('chord-info-section');
     if (chordInfoContainer) {
       new ModernChordInfo(chordInfoContainer);
     }
     
-    // Компонент подсказок аккордов
-    const suggestionsContainer = document.getElementById('chord-suggestions-container');
-    if (suggestionsContainer) {
-      new ChordSuggestions(suggestionsContainer);
-    }
-    
-    // Компонент арпеджиатора
-    const arpeggiatorContainer = document.getElementById('arpeggiator-container');
+    // Arpeggiator component
+    const arpeggiatorContainer = document.querySelector('.arpeggiator-toggle');
     if (arpeggiatorContainer) {
       new Arpeggiator(arpeggiatorContainer);
     }
     
-    // Компоненты секвенсора
-    const sequenceControlsContainer = document.getElementById('sequence-controls');
+    // Sequencer components
+    const sequenceControlsContainer = document.querySelector('.sequence-controls');
     const sequenceContainer = document.getElementById('sequence-container');
-    
     if (sequenceControlsContainer && sequenceContainer) {
       new ModernSequencer(sequenceControlsContainer, sequenceContainer);
     }
     
-    // Компонент структуры трека
-    const trackStructureContainer = document.getElementById('track-structure-container');
-    if (trackStructureContainer) {
-      new TrackStructureManager(trackStructureContainer);
+    // Track structure components
+    const blockTabsContainer = document.getElementById('block-tabs-container');
+    if (blockTabsContainer) {
+      new TrackStructureManager(blockTabsContainer);
     }
     
-    // Настройка элементов экспорта
+    // Set up export buttons
     this.setupExportButtons();
   }
   
   /**
-   * Настройка кнопок экспорта
+   * Set up export buttons
    */
   static setupExportButtons() {
-    // MIDI экспорт (текущая последовательность)
+    // MIDI export (current sequence)
     const exportMidiButton = document.getElementById('export-midi');
     if (exportMidiButton) {
       exportMidiButton.addEventListener('click', () => {
@@ -166,7 +152,7 @@ class AppInitializer {
       });
     }
     
-    // Text экспорт (текущая последовательность)
+    // Text export (current sequence)
     const exportTextButton = document.getElementById('export-text');
     if (exportTextButton) {
       exportTextButton.addEventListener('click', () => {
@@ -174,7 +160,7 @@ class AppInitializer {
       });
     }
     
-    // MIDI экспорт (полный трек)
+    // MIDI export (full track)
     const exportTrackMidiButton = document.getElementById('export-track-midi');
     if (exportTrackMidiButton) {
       exportTrackMidiButton.addEventListener('click', () => {
@@ -182,7 +168,7 @@ class AppInitializer {
       });
     }
     
-    // Text экспорт (полный трек)
+    // Text export (full track)
     const exportTrackTextButton = document.getElementById('export-track-text');
     if (exportTrackTextButton) {
       exportTrackTextButton.addEventListener('click', () => {
@@ -190,7 +176,7 @@ class AppInitializer {
       });
     }
     
-    // Экспорт проекта
+    // Export project
     const exportProjectButton = document.getElementById('export-data');
     if (exportProjectButton) {
       exportProjectButton.addEventListener('click', () => {
@@ -198,60 +184,60 @@ class AppInitializer {
       });
     }
     
-    // Импорт проекта
+    // Import project
     const importProjectInput = document.getElementById('import-data');
     if (importProjectInput) {
       importProjectInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (file) {
           storageService.importProjectFromFile(file)
-            .then(() => this.showNotification('Проект успешно импортирован', 'success'))
-            .catch(error => this.showNotification('Ошибка импорта проекта: ' + error.message, 'error'));
+            .then(() => this.showNotification('Project successfully imported', 'success'))
+            .catch(error => this.showNotification('Error importing project: ' + error.message, 'error'));
         }
       });
     }
   }
   
   /**
-   * Настройка глобальных обработчиков событий
+   * Set up global event listeners
    */
   static setupEventListeners() {
-    // Сохранение данных перед закрытием страницы
+    // Save data before page unload
     window.addEventListener('beforeunload', () => {
       storageService.saveData();
     });
     
-    // Обработка нажатий клавиш
+    // Handle key presses
     document.addEventListener('keydown', (event) => {
-      // Если фокус в полях ввода - не обрабатываем
+      // Skip if focus is in input fields
       if (document.activeElement.tagName === 'INPUT' || 
           document.activeElement.tagName === 'TEXTAREA' || 
           document.activeElement.tagName === 'SELECT') {
         return;
       }
       
-      // Пробел - воспроизведение/остановка
+      // Space - toggle play/stop
       if (event.code === 'Space') {
         event.preventDefault();
         store.setIsPlaying(!store.getIsPlaying());
       }
       
-      // Escape - остановка
+      // Escape - stop playback
       if (event.code === 'Escape') {
         store.setIsPlaying(false);
       }
     });
     
-    // Запуск аудио контекста по первому взаимодействию
+    // Start audio context on first interaction
     const startAudio = async () => {
       try {
         await audioService.startAudioContext();
-        // Удаляем обработчики после успешного запуска
+        // Remove listeners after successful start
         document.removeEventListener('click', startAudio);
         document.removeEventListener('keydown', startAudio);
         document.removeEventListener('touchstart', startAudio);
       } catch (error) {
-        console.error('Ошибка запуска аудио контекста:', error);
+        console.error('Error starting audio context:', error);
       }
     };
     
@@ -259,7 +245,7 @@ class AppInitializer {
     document.addEventListener('keydown', startAudio);
     document.addEventListener('touchstart', startAudio);
     
-    // Обработчик для кнопки показа/скрытия квартоквинтового круга
+    // Circle visibility toggle
     const toggleCircleButton = document.getElementById('toggle-circle');
     if (toggleCircleButton) {
       toggleCircleButton.addEventListener('click', () => {
@@ -267,36 +253,36 @@ class AppInitializer {
         if (circleContainer) {
           const isVisible = circleContainer.style.display !== 'none';
           circleContainer.style.display = isVisible ? 'none' : 'block';
-          toggleCircleButton.textContent = isVisible ? 'Показать круг тональностей' : 'Скрыть круг тональностей';
+          toggleCircleButton.textContent = isVisible ? 'Show Tonality Circle' : 'Hide Tonality Circle';
         }
       });
     }
   }
   
   /**
-   * Отображение уведомления
-   * @param {string} message - Текст уведомления
-   * @param {string} type - Тип уведомления (info, success, warning, error)
+   * Show notification
+   * @param {string} message - Notification message
+   * @param {string} type - Notification type (info, success, warning, error)
    */
   static showNotification(message, type = 'info') {
-    // Создаем элемент уведомления
+    // Create notification element
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
     notification.textContent = message;
     
-    // Добавляем на страницу
+    // Add to page
     document.body.appendChild(notification);
     
-    // Запускаем анимацию появления
+    // Start show animation
     setTimeout(() => {
       notification.classList.add('show');
     }, 10);
     
-    // Автоматическое скрытие через 3 секунды
+    // Auto-hide after 3 seconds
     setTimeout(() => {
       notification.classList.remove('show');
       
-      // Удаляем элемент после окончания анимации
+      // Remove element after animation completes
       setTimeout(() => {
         document.body.removeChild(notification);
       }, 300);
@@ -304,12 +290,10 @@ class AppInitializer {
   }
   
   /**
-   * Отображение уведомления об ошибке
-   * @param {string} message - Текст уведомления
+   * Show error notification
+   * @param {string} message - Error message
    */
   static showErrorNotification(message) {
     this.showNotification(message, 'error');
   }
 }
-
-export default AppInitializer;

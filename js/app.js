@@ -1,24 +1,24 @@
 /**
  * app.js
- * Главный файл инициализации приложения ChordPlayer
+ * Main application entry point for ChordPlayer
  */
 
 import AppInitializer from './core/appInitializer.js';
 
-// Инициализация приложения после загрузки DOM
+// Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    // Запускаем инициализацию через утилиту
+    // Start initialization
     await AppInitializer.initialize();
     
-    console.log('Приложение ChordPlayer успешно запущено');
+    console.log('ChordPlayer application successfully started');
   } catch (error) {
-    console.error('Ошибка запуска приложения:', error);
+    console.error('Error starting application:', error);
     
-    // Показываем сообщение об ошибке
+    // Show error message
     const errorMessage = document.createElement('div');
     errorMessage.className = 'error-message';
-    errorMessage.textContent = 'Не удалось запустить приложение. Пожалуйста, перезагрузите страницу или проверьте консоль разработчика.';
+    errorMessage.textContent = 'Unable to start application. Please reload the page or check the developer console.';
     document.body.appendChild(errorMessage);
   }
 });

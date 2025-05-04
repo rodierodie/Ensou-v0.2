@@ -4,15 +4,21 @@
  */
 
 import store from '../../core/store.js';
+import { tonalityCollection } from '../../models/tonality.js';
+import Component from '../component.js';
 
-class BlockSelector {
+class BlockSelector extends Component {
   /**
    * Create a new BlockSelector component
    * @param {HTMLElement} container - Container for block tabs
    * @param {Object} options - Configuration options
    */
   constructor(container, options = {}) {
-    this.container = container;
+    super(container, {
+      ...options,
+      autoRender: false
+    });
+    
     this.options = {
       onBlockSelect: null,  // Callback when block is selected
       onBlockAdd: null,     // Callback when block is added
@@ -32,11 +38,14 @@ class BlockSelector {
    */
   init() {
     // Subscribe to store changes
-    store.subscribe(this.handleStateChange.bind(this), 
+    this.subscribeToStore(this.handleStateChange, 
       ['trackStructure', 'currentBlockIndex']);
     
     // Initial sync with store
     this.syncWithStore();
+    
+    // Now render the component
+    this.render();
   }
   
   /**
@@ -45,16 +54,13 @@ class BlockSelector {
   syncWithStore() {
     this.blocks = store.getTrackStructure();
     this.currentBlockIndex = store.getCurrentBlockIndex();
-    
-    this.updateBlockTabs();
   }
   
   /**
-   * Update block tabs UI
+   * Render the component
    */
-  updateBlockTabs() {
-    // Clear container
-    this.container.innerHTML = '';
+  render() {
+    this.clearContainer();
     
     // Create and add tabs for each block
     this.blocks.forEach((block, index) => {
@@ -63,11 +69,13 @@ class BlockSelector {
     });
     
     // Add "New Block" button
-    const addButton = document.createElement('button');
-    addButton.className = 'add-block';
-    addButton.textContent = '+';
-    addButton.title = 'Добавить новый блок';
-    addButton.addEventListener('click', () => this.handleAddBlock());
+    const addButton = this.createElement('button', {
+      className: 'add-block',
+      textContent: '+',
+      title: 'Добавить новый блок',
+      onClick: () => this.handleAddBlock()
+    });
+    
     this.container.appendChild(addButton);
     
     // Update active block title
@@ -81,19 +89,15 @@ class BlockSelector {
    * @returns {HTMLElement} Block tab element
    */
   createBlockTab(block, index) {
-    const tab = document.createElement('button');
-    tab.className = 'block-tab';
-    tab.textContent = block.name;
-    tab.setAttribute('data-index', index);
-    tab.setAttribute('data-block-id', block.id);
-    
-    // Check if this is the active block
-    if (index === this.currentBlockIndex) {
-      tab.classList.add('active');
-    }
-    
-    // Add click handler
-    tab.addEventListener('click', () => this.handleBlockSelect(index));
+    const tab = this.createElement('button', {
+      className: `block-tab ${index === this.currentBlockIndex ? 'active' : ''}`,
+      textContent: block.name,
+      dataset: {
+        index: index,
+        blockId: block.id
+      },
+      onClick: () => this.handleBlockSelect(index)
+    });
     
     // Add context menu for additional actions
     tab.addEventListener('contextmenu', (e) => {
@@ -311,8 +315,9 @@ class BlockSelector {
     const block = this.blocks[index];
     
     // Create options for tonalities
-    const tonalityOptions = Object.keys(window.TONALITY_DATA || {})
-      .map(key => `${key} (${window.TONALITY_DATA[key].name})`)
+    const allTonalities = tonalityCollection.getAllTonalities();
+    const tonalityOptions = allTonalities
+      .map(tonality => `${tonality.code} (${tonality.name})`)
       .join('\n');
     
     // Prompt for new tonality
@@ -324,7 +329,8 @@ class BlockSelector {
     // Validate new tonality
     if (!newTonality || newTonality === block.tonality) return;
     
-    if (!window.TONALITY_DATA || !window.TONALITY_DATA[newTonality]) {
+    // Check if tonality exists in the collection
+    if (!tonalityCollection.getTonality(newTonality)) {
       alert('Неверная тональность. Выберите из списка.');
       return;
     }
@@ -496,7 +502,7 @@ class BlockSelector {
     switch (changedProp) {
       case 'trackStructure':
         this.blocks = state.trackStructure;
-        this.updateBlockTabs();
+        this.render();
         break;
         
       case 'currentBlockIndex':

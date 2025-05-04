@@ -1,6 +1,6 @@
 /**
  * arpeggiator.js
- * Компонент для арпеджирования аккордов в современной архитектуре
+ * Modernized component for chord arpeggiation
  */
 
 import Component from '../component.js';
@@ -10,9 +10,9 @@ import eventBus from '../../core/eventBus.js';
 
 class Arpeggiator extends Component {
   /**
-   * Создает новый компонент арпеджиатора
-   * @param {HTMLElement} container - Контейнер для UI элементов
-   * @param {Object} options - Настройки компонента
+   * Creates arpeggiator component
+   * @param {HTMLElement} container - Container for UI elements
+   * @param {Object} options - Configuration options
    */
   constructor(container, options = {}) {
     super(container, {
@@ -20,54 +20,54 @@ class Arpeggiator extends Component {
       autoRender: false
     });
     
-    // Инициализируем настройки по умолчанию
+    // Initialize default settings
     this.settings = {
-      enabled: false,        // Включен ли арпеджиатор
-      pattern: 'up',         // Паттерн арпеджио (up, down, updown, downup, random)
-      octaveRange: 1,        // Диапазон октав (1-3)
-      octaveOffset: 0,       // Смещение октавы (-2, -1, 0, 1)
-      noteLength: '8n',      // Длительность нот (8n = восьмые, 16n = шестнадцатые, 32n = тридцать вторые)
-      velocity: 0.7,         // Громкость нот (0-1)
-      accentFirst: true      // Акцентировать первую ноту в арпеджио
+      enabled: false,        // Arpeggiator enabled flag
+      pattern: 'up',         // Arpeggio pattern (up, down, updown, downup, random)
+      octaveRange: 1,        // Octave range (1-3)
+      octaveOffset: 0,       // Octave offset (-2, -1, 0, 1)
+      noteLength: '8n',      // Note length (8n = eighth, 16n = sixteenth, 32n = thirty-second)
+      velocity: 0.7,         // Note velocity/volume (0-1)
+      accentFirst: true      // Accent first note flag
     };
     
-    // Загружаем сохраненные настройки
+    // Load saved settings
     this.loadSettings();
     
-    // Подписываемся на изменения в store
+    // Subscribe to store changes
     this.subscribeToStore(this.handleStateChange, ['arpeggiatorEnabled']);
     
-    // Инициализируем UI
+    // Initialize UI
     this.init();
   }
   
   /**
-   * Инициализация компонента
+   * Initialize component
    */
   init() {
-    console.log('Инициализация компонента арпеджиатора');
+    console.log('Initializing arpeggiator component');
     
-    // Публикуем настройки в аудио сервис
+    // Update audio service with settings
     this.updateAudioService();
     
-    // Рендерим UI
+    // Render UI
     this.render();
     
-    // Публикуем событие инициализации
+    // Publish initialization event
     eventBus.publish('arpeggiatorInitialized', {
       settings: this.settings
     });
   }
   
   /**
-   * Рендеринг UI компонента
+   * Render component UI
    */
   render() {
     if (!this.container) return;
     
     this.clearContainer();
     
-    // Создаем заголовок
+    // Create title
     const title = this.createElement('div', {
       className: 'arpeggiator-title',
       textContent: 'Арпеджиатор',
@@ -78,12 +78,12 @@ class Arpeggiator extends Component {
     });
     this.container.appendChild(title);
     
-    // Создаем основной контейнер настроек
+    // Create settings container
     const settingsContainer = this.createElement('div', {
       className: 'arpeggiator-settings'
     });
     
-    // 1. Переключатель включения/выключения
+    // 1. Enable/disable toggle
     const toggleContainer = this.createSettingRow('Включить:');
     const toggle = this.createElement('input', {
       type: 'checkbox',
@@ -94,14 +94,14 @@ class Arpeggiator extends Component {
     toggleContainer.appendChild(toggle);
     settingsContainer.appendChild(toggleContainer);
     
-    // 2. Селектор паттерна
+    // 2. Pattern selector
     const patternContainer = this.createSettingRow('Паттерн:');
     const patternSelector = this.createElement('select', {
       id: 'arpeggiator-pattern',
       onChange: this.handlePatternChange.bind(this)
     });
     
-    // Добавляем опции паттернов
+    // Add pattern options
     const patterns = [
       { value: 'up', label: 'Вверх' },
       { value: 'down', label: 'Вниз' },
@@ -122,14 +122,14 @@ class Arpeggiator extends Component {
     patternContainer.appendChild(patternSelector);
     settingsContainer.appendChild(patternContainer);
     
-    // 3. Селектор диапазона октав
+    // 3. Octave range selector
     const octaveContainer = this.createSettingRow('Октавы:');
     const octaveSelector = this.createElement('select', {
       id: 'arpeggiator-octave',
       onChange: this.handleOctaveChange.bind(this)
     });
     
-    // Добавляем опции октав
+    // Add octave options
     for (let i = 1; i <= 3; i++) {
       const option = this.createElement('option', {
         value: i,
@@ -142,14 +142,14 @@ class Arpeggiator extends Component {
     octaveContainer.appendChild(octaveSelector);
     settingsContainer.appendChild(octaveContainer);
     
-    // 4. Селектор смещения октавы
+    // 4. Octave offset selector
     const offsetContainer = this.createSettingRow('Смещение:');
     const offsetSelector = this.createElement('select', {
       id: 'arpeggiator-offset',
       onChange: this.handleOffsetChange.bind(this)
     });
     
-    // Добавляем опции смещения
+    // Add offset options
     const offsets = [
       { value: -2, label: '-2' },
       { value: -1, label: '-1' },
@@ -169,14 +169,14 @@ class Arpeggiator extends Component {
     offsetContainer.appendChild(offsetSelector);
     settingsContainer.appendChild(offsetContainer);
     
-    // 5. Селектор длительности нот
+    // 5. Note length selector
     const lengthContainer = this.createSettingRow('Длительность:');
     const lengthSelector = this.createElement('select', {
       id: 'arpeggiator-note-length',
       onChange: this.handleNoteLengthChange.bind(this)
     });
     
-    // Добавляем опции длительности
+    // Add note length options
     const lengths = [
       { value: '8n', label: '1/8' },
       { value: '16n', label: '1/16' },
@@ -195,7 +195,7 @@ class Arpeggiator extends Component {
     lengthContainer.appendChild(lengthSelector);
     settingsContainer.appendChild(lengthContainer);
     
-    // 6. Чекбокс акцента
+    // 6. Accent checkbox
     const accentContainer = this.createSettingRow('Акцент первой ноты:');
     const accentToggle = this.createElement('input', {
       type: 'checkbox',
@@ -206,14 +206,14 @@ class Arpeggiator extends Component {
     accentContainer.appendChild(accentToggle);
     settingsContainer.appendChild(accentContainer);
     
-    // Добавляем контейнер настроек в основной контейнер
+    // Add settings container to main container
     this.container.appendChild(settingsContainer);
   }
   
   /**
-   * Создание строки настройки с меткой
-   * @param {string} labelText - Текст метки
-   * @returns {HTMLElement} Контейнер строки настройки
+   * Create a setting row with label
+   * @param {string} labelText - Label text
+   * @returns {HTMLElement} Setting row container
    */
   createSettingRow(labelText) {
     const container = this.createElement('div', {
@@ -230,7 +230,7 @@ class Arpeggiator extends Component {
   }
   
   /**
-   * Загрузка настроек из localStorage
+   * Load settings from localStorage
    */
   loadSettings() {
     try {
@@ -238,53 +238,53 @@ class Arpeggiator extends Component {
       if (savedSettings) {
         const parsedSettings = JSON.parse(savedSettings);
         
-        // Обновляем настройки из сохраненных значений
+        // Update settings with saved values
         this.settings = {
           ...this.settings,
           ...parsedSettings
         };
         
-        console.log('Загружены настройки арпеджиатора:', this.settings);
+        console.log('Loaded arpeggiator settings:', this.settings);
       }
     } catch (e) {
-      console.error('Ошибка при загрузке настроек арпеджиатора:', e);
+      console.error('Error loading arpeggiator settings:', e);
     }
   }
   
   /**
-   * Сохранение настроек в localStorage
+   * Save settings to localStorage
    */
   saveSettings() {
     try {
       localStorage.setItem('arpeggiatorSettings', JSON.stringify(this.settings));
-      console.log('Настройки арпеджиатора сохранены');
+      console.log('Saved arpeggiator settings');
       
-      // Обновляем настройки в аудио сервисе
+      // Update audio service settings
       this.updateAudioService();
       
-      // Публикуем событие изменения настроек
+      // Publish settings changed event
       eventBus.publish('arpeggiatorSettingsChanged', {
         settings: this.settings
       });
     } catch (e) {
-      console.error('Ошибка при сохранении настроек арпеджиатора:', e);
+      console.error('Error saving arpeggiator settings:', e);
     }
   }
   
   /**
-   * Обновление настроек в аудио сервисе
+   * Update audio service with current settings
    */
   updateAudioService() {
-    // Передаем настройки в аудио сервис
+    // Pass settings to audio service
     audioService.saveArpeggiatorSettings(this.settings);
     
-    // Обновляем состояние в store
+    // Update store state
     store.setArpeggiatorEnabled(this.settings.enabled);
   }
   
   /**
-   * Обработчик изменения переключателя
-   * @param {Event} event - Событие изменения
+   * Handle enable toggle change
+   * @param {Event} event - Change event
    */
   handleToggleChange(event) {
     this.settings.enabled = event.target.checked;
@@ -292,8 +292,8 @@ class Arpeggiator extends Component {
   }
   
   /**
-   * Обработчик изменения паттерна
-   * @param {Event} event - Событие изменения
+   * Handle pattern change
+   * @param {Event} event - Change event
    */
   handlePatternChange(event) {
     this.settings.pattern = event.target.value;
@@ -301,8 +301,8 @@ class Arpeggiator extends Component {
   }
   
   /**
-   * Обработчик изменения диапазона октав
-   * @param {Event} event - Событие изменения
+   * Handle octave range change
+   * @param {Event} event - Change event
    */
   handleOctaveChange(event) {
     this.settings.octaveRange = parseInt(event.target.value);
@@ -310,8 +310,8 @@ class Arpeggiator extends Component {
   }
   
   /**
-   * Обработчик изменения смещения октавы
-   * @param {Event} event - Событие изменения
+   * Handle octave offset change
+   * @param {Event} event - Change event
    */
   handleOffsetChange(event) {
     this.settings.octaveOffset = parseInt(event.target.value);
@@ -319,8 +319,8 @@ class Arpeggiator extends Component {
   }
   
   /**
-   * Обработчик изменения длительности нот
-   * @param {Event} event - Событие изменения
+   * Handle note length change
+   * @param {Event} event - Change event
    */
   handleNoteLengthChange(event) {
     this.settings.noteLength = event.target.value;
@@ -328,8 +328,8 @@ class Arpeggiator extends Component {
   }
   
   /**
-   * Обработчик изменения акцента
-   * @param {Event} event - Событие изменения
+   * Handle accent change
+   * @param {Event} event - Change event
    */
   handleAccentChange(event) {
     this.settings.accentFirst = event.target.checked;
@@ -337,13 +337,13 @@ class Arpeggiator extends Component {
   }
   
   /**
-   * Включение/выключение арпеджиатора
-   * @param {boolean} enabled - Флаг включения
+   * Enable/disable arpeggiator
+   * @param {boolean} enabled - Enabled flag
    */
   setEnabled(enabled) {
     this.settings.enabled = enabled;
     
-    // Обновляем UI
+    // Update UI
     const toggle = document.getElementById('arpeggiator-toggle');
     if (toggle) {
       toggle.checked = enabled;
@@ -353,36 +353,35 @@ class Arpeggiator extends Component {
   }
   
   /**
-   * Получение настроек арпеджиатора
-   * @returns {Object} Текущие настройки
+   * Get current arpeggiator settings
+   * @returns {Object} Current settings
    */
   getSettings() {
     return { ...this.settings };
   }
   
   /**
-   * Обработка изменений состояния store
-   * @param {Object} state - Состояние store
-   * @param {string} changedProp - Измененное свойство
+   * Handle state changes from store
+   * @param {Object} state - Store state
+   * @param {string} changedProp - Changed property
    */
   handleStateChange(state, changedProp) {
     if (changedProp === 'arpeggiatorEnabled') {
-      // Обновляем локальные настройки, если они отличаются от состояния в store
+      // Update local settings if they differ from store state
       if (this.settings.enabled !== state.arpeggiatorEnabled) {
         this.settings.enabled = state.arpeggiatorEnabled;
         
-        // Обновляем UI
+        // Update UI
         const toggle = document.getElementById('arpeggiator-toggle');
         if (toggle) {
           toggle.checked = state.arpeggiatorEnabled;
         }
         
-        // Сохраняем настройки
+        // Save settings
         this.saveSettings();
       }
     }
   }
 }
 
-// Экспортируем класс
 export default Arpeggiator;
