@@ -1,0 +1,358 @@
+/* Сброс стилей и основные настройки */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #333;
+    background-color: #f5f5f5;
+}
+
+.app {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+button {
+    cursor: pointer;
+    border: none;
+    background: none;
+}
+
+.button {
+    padding: 8px 16px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.button:hover {
+    background-color: #f0f0f0;
+}
+
+.button-link {
+    background: none;
+    border: none;
+    color: #666;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.select {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: #fff;
+}
+
+/* Заголовок */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+}
+
+.logo-square {
+    width: 30px;
+    height: 30px;
+    background-color: #000;
+    margin-right: 10px;
+}
+
+.logo h1 {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.playback-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.tempo-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.tempo-control input {
+    width: 60px;
+    padding: 5px;
+    text-align: center;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.arpeggiator-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #f44336;
+}
+
+.playback-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.play-button, .stop-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fff;
+    border: 1px solid #ccc;
+}
+
+.play-icon {
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 8px 0 8px 16px;
+    border-color: transparent transparent transparent #333;
+}
+
+.stop-icon {
+    width: 16px;
+    height: 16px;
+    background-color: #333;
+}
+
+/* Управление блоками */
+.block-manager {
+    margin-bottom: 20px;
+}
+
+.block-tabs {
+    display: flex;
+    gap: 10px;
+}
+
+.block-tab {
+    padding: 15px;
+    min-width: 70px;
+    text-align: center;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: #fff;
+}
+
+.block-tab.active {
+    border-color: #333;
+    font-weight: bold;
+}
+
+.add-block {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* Основное содержимое */
+.main-content {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.block-title {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.block-actions {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Секция тональности */
+.tonality-section {
+    margin-bottom: 30px;
+}
+
+.tonality-selectors {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.tonality-circle {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    margin: 0 auto;
+    border-radius: 50%;
+    background-color: #f9f9f9;
+    border: 1px solid #eee;
+}
+
+/* Аккорды */
+.chords-section {
+    margin-bottom: 30px;
+}
+
+.chords-section h3 {
+    margin-bottom: 10px;
+}
+
+.chord-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.chord-item {
+    padding: 10px;
+    border: 1px solid;
+    border-radius: 4px;
+    text-align: center;
+    position: relative;
+}
+
+.chord-badge {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.tonic {
+    background-color: blue;
+    border-color: #3f51b5;
+}
+
+.subdominant {
+    background-color: green;
+    border-color: #4caf50;
+}
+
+.dominant {
+    background-color: red;
+    border-color: #f44336;
+}
+
+/* Информация об аккорде */
+.chord-info {
+    background-color: #f0f7ff;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.chord-functions {
+    margin: 15px 0;
+}
+
+.function-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.function-badge {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.chord-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* Секвенция */
+.sequence-section {
+    margin-bottom: 20px;
+}
+
+.chord-sequence {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.sequence-chord {
+    width: 100px;
+    height: 100px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.export-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+/* Футер */
+.footer {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    font-size: 14px;
+    color: #666;
+}
+
+.import-export {
+    display: flex;
+    gap: 15px;
+}
