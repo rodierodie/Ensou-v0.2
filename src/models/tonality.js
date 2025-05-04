@@ -1,405 +1,525 @@
 /**
- * Класс, представляющий тональность в музыке
+ * tonality.js
+ * Module for working with musical tonalities in the ChordPlayer application
+ * Provides classes for tonality representation and management
  */
-export class Tonality {
-    /**
-     * @param {string} note - Нота тональности (C, C#, D, и т.д.)
-     * @param {string} type - Тип тональности ('dur' для мажора, 'moll' для минора)
-     */
-    constructor(note, type) {
-        this.note = note;
-        this.type = type;
+
+import { eventBus } from '../core/eventBus.js';
+import { chordCollection } from './chord.js';
+
+/**
+ * Class representing a musical tonality
+ */
+class Tonality {
+  /**
+   * Create a new Tonality
+   * @param {string} code - Tonality code (e.g., "C", "Am")
+   * @param {string} name - Full name (e.g., "До мажор", "Ля минор")
+   * @param {string} type - Tonality type ("major" or "minor")
+   * @param {string} signature - Key signature (e.g., "0", "1#", "2b")
+   * @param {Object} chords - Available chords in this tonality
+   * @param {Array} chords.basic - Basic triads
+   * @param {Array} chords.seventh - Seventh chords
+   */
+  constructor(code, name, type, signature, chords) {
+    this.code = code;             // Code (C, G, Am, etc.)
+    this.name = name;             // Full name (До мажор, Ля минор)
+    this.type = type;             // Type (major/minor)
+    this.signature = signature;   // Key signature (0, 1#, 2b, etc.)
+    this.chords = chords || {     // Chords in this tonality
+      basic: [],                  // Basic triads
+      seventh: []                 // Seventh chords
+    };
+    
+    // Circle of fifths position (calculated on demand)
+    this._circlePosition = null;
+  }
+  
+  /**
+   * Get the root note of the tonality
+   * @returns {string} Root note
+   */
+  getRootNote() {
+    return this.isMinor() ? this.code.slice(0, -1) : this.code;
+  }
+  
+  /**
+   * Check if tonality is minor
+   * @returns {boolean} True if minor
+   */
+  isMinor() {
+    return this.type === 'minor';
+  }
+  
+  /**
+   * Check if tonality is major
+   * @returns {boolean} True if major
+   */
+  isMajor() {
+    return this.type === 'major';
+  }
+  
+  /**
+   * Get all chords in this tonality
+   * @returns {Array} Combined array of all chords
+   */
+  getAllChords() {
+    return [...this.chords.basic, ...this.chords.seventh];
+  }
+  
+  /**
+   * Get basic triads in this tonality
+   * @returns {Array} Array of basic chord names
+   */
+  getBasicChords() {
+    return [...this.chords.basic];
+  }
+  
+  /**
+   * Get seventh chords in this tonality
+   * @returns {Array} Array of seventh chord names
+   */
+  getSeventhChords() {
+    return [...this.chords.seventh];
+  }
+  
+  /**
+   * Get chords by function in this tonality
+   * @param {string} functionName - Function name (tonic, subdominant, dominant)
+   * @returns {Array} Array of chord objects with the specified function
+   */
+  getChordsByFunction(functionName) {
+    if (!chordCollection) return [];
+    
+    return chordCollection.getAllChords().filter(chord => {
+      const func = chord.getFunctionInTonality(this.code);
+      return func && func.function === functionName;
+    });
+  }
+  
+  /**
+   * Get relative tonality (major->minor or minor->major)
+   * @returns {string|null} Code of relative tonality or null if not found
+   */
+  getRelativeTonality() {
+    if (this.isMajor()) {
+      // Major to relative minor (down 3 semitones)
+      const relativeMinorNotes = {
+        'C': 'A', 'G': 'E', 'D': 'B', 'A': 'F#',
+        'E': 'C#', 'B': 'G#', 'F#': 'D#', 'C#': 'A#',
+        'F': 'D', 'Bb': 'G', 'Eb': 'C', 'Ab': 'F',
+        'Db': 'Bb', 'Gb': 'Eb', 'Cb': 'Ab'
+      };
+      
+      return relativeMinorNotes[this.code] ? `${relativeMinorNotes[this.code]}m` : null;
+    } else {
+      // Minor to relative major (up 3 semitones)
+      const relativeMajorNotes = {
+        'Am': 'C', 'Em': 'G', 'Bm': 'D', 'F#m': 'A',
+        'C#m': 'E', 'G#m': 'B', 'D#m': 'F#', 'A#m': 'C#',
+        'Dm': 'F', 'Gm': 'Bb', 'Cm': 'Eb', 'Fm': 'Ab',
+        'Bbm': 'Db', 'Ebm': 'Gb', 'Abm': 'Cb'
+      };
+      
+      return relativeMajorNotes[this.code] || null;
     }
-
-    /**
-     * Получение названия тональности
-     * @returns {string} - Название тональности (например, "C dur" или "A moll")
-     */
-    getName() {
-        return `${this.note} ${this.type}`;
+  }
+  
+  /**
+   * Get position in the circle of fifths (0-11, where 0 is C major)
+   * @returns {number} Position in circle of fifths
+   */
+  getCircleOfFifthsPosition() {
+    // Return cached value if already calculated
+    if (this._circlePosition !== null) {
+      return this._circlePosition;
     }
-
-    /**
-     * Получение локализованного названия тональности
-     * @returns {string} - Локализованное название тональности (например, "До мажор" или "Ля минор")
-     */
-    getLocalizedName() {
-        const noteNames = {
-            'C': 'До',
-            'C#': 'До диез',
-            'Db': 'Ре бемоль',
-            'D': 'Ре',
-            'D#': 'Ре диез',
-            'Eb': 'Ми бемоль',
-            'E': 'Ми',
-            'F': 'Фа',
-            'F#': 'Фа диез',
-            'Gb': 'Соль бемоль',
-            'G': 'Соль',
-            'G#': 'Соль диез',
-            'Ab': 'Ля бемоль',
-            'A': 'Ля',
-            'A#': 'Ля диез',
-            'Bb': 'Си бемоль',
-            'B': 'Си'
-        };
-
-        const typeNames = {
-            'dur': 'мажор',
-            'moll': 'минор'
-        };
-
-        return `${noteNames[this.note] || this.note} ${typeNames[this.type] || this.type}`;
+    
+    // Circle of fifths order for major keys
+    const majorOrder = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'];
+    
+    // For major tonalities, find position directly
+    if (this.isMajor()) {
+      this._circlePosition = majorOrder.indexOf(this.code);
+      return this._circlePosition;
     }
-
-    /**
-     * Получение списка нот тональности
-     * @returns {Array<string>} - Массив нот тональности
-     */
-    getNotes() {
-        const chromaticScale = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-        
-        // Шаблоны ступеней для мажора и минора (интервалы в полутонах)
-        const patterns = {
-            'dur': [0, 2, 4, 5, 7, 9, 11],  // Мажорная гамма (2-2-1-2-2-2-1)
-            'moll': [0, 2, 3, 5, 7, 8, 10]  // Натуральная минорная гамма (2-1-2-2-1-2-2)
-        };
-        
-        // Определяем индекс стартовой ноты в хроматической гамме
-        let startIndex = chromaticScale.indexOf(this.note);
-        if (startIndex === -1) {
-            // Обработка альтернативных названий (бемолей)
-            const enharmonics = {
-                'Db': 'C#',
-                'Eb': 'D#',
-                'Gb': 'F#',
-                'Ab': 'G#',
-                'Bb': 'A#'
-            };
-            
-            if (enharmonics[this.note]) {
-                startIndex = chromaticScale.indexOf(enharmonics[this.note]);
-            }
-        }
-        
-        // Если тональность всё еще не найдена, возвращаем пустой массив
-        if (startIndex === -1) {
-            return [];
-        }
-        
-        // Выбираем соответствующий шаблон
-        const pattern = patterns[this.type] || patterns.dur;
-        
-        // Строим гамму
-        return pattern.map(semitones => {
-            const index = (startIndex + semitones) % 12;
-            return chromaticScale[index];
-        });
+    
+    // For minor tonalities, find position of relative major
+    const relativeMajor = this.getRelativeTonality();
+    if (relativeMajor) {
+      this._circlePosition = majorOrder.indexOf(relativeMajor) + 12; // +12 to distinguish minor
+      return this._circlePosition;
     }
-
-    /**
-     * Получение аккордов тональности
-     * @returns {Array<Object>} - Массив аккордов тональности с информацией
-     */
-    getChordsInTonality() {
-        const notes = this.getNotes();
-        
-        // Шаблоны аккордов для ступеней в мажоре и миноре
-        const chordTemplates = {
-            'dur': ['maj', 'min', 'min', 'maj', 'maj', 'min', 'dim'],
-            'moll': ['min', 'dim', 'maj', 'min', 'min', 'maj', 'maj']
-        };
-        
-        // Шаблоны для септаккордов
-        const seventhTemplates = {
-            'dur': ['maj7', 'min7', 'min7', 'maj7', '7', 'min7', 'm7b5'],
-            'moll': ['min7', 'm7b5', 'maj7', 'min7', 'min7', 'maj7', '7']
-        };
-        
-        // Функции аккордов
-        const functions = {
-            'dur': ['T', 'SD', 'T', 'SD', 'D', 'T', 'D'],
-            'moll': ['T', 'SD', 'TD', 'SD', 'D', 'TD', 'D']
-        };
-        
-        // Выбираем соответствующие шаблоны
-        const chordTypes = chordTemplates[this.type] || chordTemplates.dur;
-        const seventhTypes = seventhTemplates[this.type] || seventhTemplates.dur;
-        const chordFunctions = functions[this.type] || functions.dur;
-        
-        // Формируем аккорды
-        const chords = notes.map((note, index) => {
-            const degree = index + 1; // Ступень (от 1 до 7)
-            const chordType = chordTypes[index];
-            const seventhType = seventhTypes[index];
-            const func = chordFunctions[index];
-            const romanNumeral = this.getRomanNumeral(degree, chordType);
-            
-            // Создаем объект аккорда с информацией
-            return {
-                root: note,
-                type: chordType,
-                seventhType: seventhType,
-                degree,
-                function: func,
-                romanNumeral,
-                inTonality: this.getName()
-            };
-        });
-        
-        return chords;
-    }
-
-    /**
-     * Преобразование ступени и типа аккорда в запись римскими цифрами
-     * @param {number} degree - Ступень аккорда (1-7)
-     * @param {string} chordType - Тип аккорда (maj, min, dim)
-     * @returns {string} - Запись ступени римскими цифрами
-     */
-    getRomanNumeral(degree, chordType) {
-        const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
-        let numeral = romanNumerals[degree - 1] || '';
-        
-        // Для минорных аккордов используем строчные буквы
-        if (chordType === 'min' || chordType === 'dim') {
-            numeral = numeral.toLowerCase();
-        }
-        
-        // Добавляем обозначение уменьшенного аккорда
-        if (chordType === 'dim') {
-            numeral += '°';
-        }
-        
-        return numeral;
-    }
-
-    /**
-     * Получение индекса тональности в круге квинт
-     * @returns {number} - Индекс в круге квинт (0-11)
-     */
-    getCircleOfFifthsIndex() {
-        const noteOrder = {
-            'C': 0, 'G': 1, 'D': 2, 'A': 3, 'E': 4, 'B': 5, 'F#': 6, 'C#': 7,
-            'Gb': 6, 'Db': 7, 'Ab': 8, 'Eb': 9, 'Bb': 10, 'F': 11
-        };
-        
-        return noteOrder[this.note] !== undefined ? noteOrder[this.note] : 0;
-    }
-
-    /**
-     * Нахождение родственных тональностей
-     * @returns {Array<Object>} - Массив родственных тональностей
-     */
-    getRelatedTonalities() {
-        const related = [];
-        
-        // Параллельная тональность
-        const parallelType = this.type === 'dur' ? 'moll' : 'dur';
-        let parallelNote = this.note;
-        
-        if (this.type === 'dur') {
-            // Параллельный минор на малую терцию ниже
-            const chromaticScale = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-            const index = chromaticScale.indexOf(this.note);
-            if (index !== -1) {
-                const parallelIndex = (index + 9) % 12; // -3 полутона или +9 полутонов
-                parallelNote = chromaticScale[parallelIndex];
-            }
-        } else if (this.type === 'moll') {
-            // Параллельный мажор на малую терцию выше
-            const chromaticScale = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-            const index = chromaticScale.indexOf(this.note);
-            if (index !== -1) {
-                const parallelIndex = (index + 3) % 12; // +3 полутона
-                parallelNote = chromaticScale[parallelIndex];
-            }
-        }
-        
-        related.push({
-            note: parallelNote,
-            type: parallelType,
-            relationship: 'parallel'
-        });
-        
-        // Доминантовая тональность (на квинту вверх)
-        const chromaticScale = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-        const index = chromaticScale.indexOf(this.note);
-        if (index !== -1) {
-            const dominantIndex = (index + 7) % 12; // +7 полутонов (чистая квинта)
-            const dominantNote = chromaticScale[dominantIndex];
-            related.push({
-                note: dominantNote,
-                type: this.type,
-                relationship: 'dominant'
-            });
-        }
-        
-        // Субдоминантовая тональность (на квинту вниз или на кварту вверх)
-        if (index !== -1) {
-            const subdominantIndex = (index + 5) % 12; // +5 полутонов (чистая кварта)
-            const subdominantNote = chromaticScale[subdominantIndex];
-            related.push({
-                note: subdominantNote,
-                type: this.type,
-                relationship: 'subdominant'
-            });
-        }
-        
-        return related;
-    }
-
-    /**
-     * Получение количества знаков альтерации в тональности
-     * @returns {Object} - Объект с информацией о знаках альтерации
-     */
-    getKeySignature() {
-        // Количество знаков для мажорных тональностей
-        const majorSharps = {
-            'C': 0, 'G': 1, 'D': 2, 'A': 3, 'E': 4, 'B': 5, 'F#': 6, 'C#': 7
-        };
-        
-        const majorFlats = {
-            'C': 0, 'F': 1, 'Bb': 2, 'Eb': 3, 'Ab': 4, 'Db': 5, 'Gb': 6, 'Cb': 7
-        };
-        
-        // Для минорных тональностей используем их параллельные мажорные
-        const minorToMajor = {
-            'A': 'C', 'E': 'G', 'B': 'D', 'F#': 'A', 'C#': 'E', 'G#': 'B', 'D#': 'F#', 'A#': 'C#',
-            'D': 'F', 'G': 'Bb', 'C': 'Eb', 'F': 'Ab', 'Bb': 'Db', 'Eb': 'Gb'
-        };
-        
-        let count = 0;
-        let type = 'none'; // 'sharp', 'flat' или 'none'
-        
-        if (this.type === 'dur') {
-            if (majorSharps[this.note] !== undefined) {
-                count = majorSharps[this.note];
-                type = count > 0 ? 'sharp' : 'none';
-            } else if (majorFlats[this.note] !== undefined) {
-                count = majorFlats[this.note];
-                type = count > 0 ? 'flat' : 'none';
-            }
-        } else if (this.type === 'moll') {
-            const relatedMajor = minorToMajor[this.note];
-            if (relatedMajor) {
-                if (majorSharps[relatedMajor] !== undefined) {
-                    count = majorSharps[relatedMajor];
-                    type = count > 0 ? 'sharp' : 'none';
-                } else if (majorFlats[relatedMajor] !== undefined) {
-                    count = majorFlats[relatedMajor];
-                    type = count > 0 ? 'flat' : 'none';
-                }
-            }
-        }
-        
-        return {
-            count,
-            type
-        };
-    }
-
-    /**
-     * Сравнение с другой тональностью
-     * @param {Tonality} other - Другая тональность для сравнения
-     * @returns {boolean} - true, если тональности равны
-     */
-    equals(other) {
-        return this.note === other.note && this.type === other.type;
-    }
-
-    /**
-     * Преобразование тональности в строку
-     * @returns {string} - Строковое представление тональности
-     */
-    toString() {
-        return this.getName();
-    }
-
-    /**
-     * Создание объекта для сериализации
-     * @returns {Object} - Объект для JSON-сериализации
-     */
-    toJSON() {
-        return {
-            note: this.note,
-            type: this.type
-        };
-    }
-
-    /**
-     * Создание тональности из объекта
-     * @param {Object} obj - Объект с параметрами тональности
-     * @returns {Tonality} - Новый экземпляр тональности
-     */
-    static fromJSON(obj) {
-        return new Tonality(obj.note, obj.type);
-    }
+    
+    // Fallback if not found
+    return -1;
+  }
+  
+  /**
+   * Get the degree of a chord in this tonality
+   * @param {string} chordName - Chord name
+   * @returns {string|null} Degree (I, ii, iii, etc.) or null if not found
+   */
+  getChordDegree(chordName) {
+    if (!chordCollection) return null;
+    
+    const chord = chordCollection.getChord(chordName);
+    if (!chord) return null;
+    
+    const func = chord.getFunctionInTonality(this.code);
+    return func ? func.degree : null;
+  }
+  
+  /**
+   * Create a string representation of the tonality
+   * @returns {string} String representation
+   */
+  toString() {
+    return `${this.code} (${this.name})`;
+  }
 }
 
 /**
- * Класс, представляющий коллекцию доступных тональностей
+ * Collection of tonalities for managing and retrieving tonality information
  */
-export class TonalityCollection {
-    constructor() {
-        this.tonalities = [];
-        this.initializeTonalities();
+class TonalityCollection {
+  /**
+   * Create a new TonalityCollection
+   */
+  constructor() {
+    this.tonalities = new Map();
+    this._loaded = false;
+  }
+  
+  /**
+   * Add a tonality to the collection
+   * @param {Tonality} tonality - Tonality to add
+   * @returns {Tonality} The added tonality
+   */
+  addTonality(tonality) {
+    this.tonalities.set(tonality.code, tonality);
+    return tonality;
+  }
+  
+  /**
+   * Get a tonality by code
+   * @param {string} code - Tonality code
+   * @returns {Tonality|undefined} Tonality object or undefined if not found
+   */
+  getTonality(code) {
+    return this.tonalities.get(code);
+  }
+  
+  /**
+   * Check if collection contains a tonality
+   * @param {string} code - Tonality code
+   * @returns {boolean} True if collection contains the tonality
+   */
+  hasTonality(code) {
+    return this.tonalities.has(code);
+  }
+  
+  /**
+   * Remove a tonality from the collection
+   * @param {string} code - Tonality code
+   * @returns {boolean} True if removal was successful
+   */
+  removeTonality(code) {
+    return this.tonalities.delete(code);
+  }
+  
+  /**
+   * Get all tonalities
+   * @returns {Array} Array of all Tonality objects
+   */
+  getAllTonalities() {
+    return Array.from(this.tonalities.values());
+  }
+  
+  /**
+   * Get major tonalities
+   * @returns {Array} Array of major Tonality objects
+   */
+  getMajorTonalities() {
+    return this.getAllTonalities().filter(tonality => tonality.isMajor());
+  }
+  
+  /**
+   * Get minor tonalities
+   * @returns {Array} Array of minor Tonality objects
+   */
+  getMinorTonalities() {
+    return this.getAllTonalities().filter(tonality => tonality.isMinor());
+  }
+  
+  /**
+   * Get tonalities sorted by circle of fifths
+   * @returns {Array} Array of Tonality objects sorted by circle of fifths
+   */
+  getTonalitiesByCircleOfFifths() {
+    return this.getAllTonalities().sort((a, b) => {
+      return a.getCircleOfFifthsPosition() - b.getCircleOfFifthsPosition();
+    });
+  }
+  
+  /**
+   * Load default tonalities
+   */
+  loadDefaultTonalities() {
+    // Clear existing tonalities
+    this.tonalities.clear();
+    
+    // Create and add major tonalities
+    [
+      { code: 'C', name: 'До мажор', signature: '0' },
+      { code: 'G', name: 'Соль мажор', signature: '1#' },
+      { code: 'D', name: 'Ре мажор', signature: '2#' },
+      { code: 'A', name: 'Ля мажор', signature: '3#' },
+      { code: 'E', name: 'Ми мажор', signature: '4#' },
+      { code: 'B', name: 'Си мажор', signature: '5#' },
+      { code: 'F#', name: 'Фа-диез мажор', signature: '6#' },
+      { code: 'F', name: 'Фа мажор', signature: '1b' },
+      { code: 'Bb', name: 'Си-бемоль мажор', signature: '2b' },
+      { code: 'Eb', name: 'Ми-бемоль мажор', signature: '3b' },
+      { code: 'Ab', name: 'Ля-бемоль мажор', signature: '4b' },
+      { code: 'Db', name: 'Ре-бемоль мажор', signature: '5b' }
+    ].forEach(data => {
+      this.addTonality(new Tonality(
+        data.code,
+        data.name,
+        'major',
+        data.signature,
+        this._generateMajorChords(data.code)
+      ));
+    });
+    
+    // Create and add minor tonalities
+    [
+      { code: 'Am', name: 'Ля минор', signature: '0' },
+      { code: 'Em', name: 'Ми минор', signature: '1#' },
+      { code: 'Bm', name: 'Си минор', signature: '2#' },
+      { code: 'F#m', name: 'Фа-диез минор', signature: '3#' },
+      { code: 'C#m', name: 'До-диез минор', signature: '4#' },
+      { code: 'G#m', name: 'Соль-диез минор', signature: '5#' },
+      { code: 'Dm', name: 'Ре минор', signature: '1b' },
+      { code: 'Gm', name: 'Соль минор', signature: '2b' },
+      { code: 'Cm', name: 'До минор', signature: '3b' },
+      { code: 'Fm', name: 'Фа минор', signature: '4b' },
+      { code: 'Bbm', name: 'Си-бемоль минор', signature: '5b' },
+      { code: 'Ebm', name: 'Ми-бемоль минор', signature: '6b' }
+    ].forEach(data => {
+      this.addTonality(new Tonality(
+        data.code,
+        data.name,
+        'minor',
+        data.signature,
+        this._generateMinorChords(data.code)
+      ));
+    });
+    
+    this._loaded = true;
+    
+    // Publish event for data initialization
+    if (eventBus) {
+      eventBus.publish('tonalitiesLoaded', {
+        count: this.tonalities.size
+      });
     }
-
-    /**
-     * Инициализация коллекции тональностей
-     */
-    initializeTonalities() {
-        const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-        const types = ['dur', 'moll'];
+    
+    console.log(`Initialized ${this.tonalities.size} tonalities`);
+  }
+  
+  /**
+   * Check if tonalities have been loaded
+   * @returns {boolean} True if tonalities are loaded
+   */
+  isLoaded() {
+    return this._loaded;
+  }
+  
+  /**
+   * Initialize default tonalities if collection is empty
+   */
+  initializeIfEmpty() {
+    if (this.tonalities.size === 0) {
+      this.loadDefaultTonalities();
+    }
+  }
+  
+  /**
+   * Initialize from legacy global data
+   * @returns {boolean} True if initialization was successful
+   */
+  initializeFromGlobalData() {
+    // Check if global data exists
+    if (typeof window === 'undefined' || !window.TONALITY_DATA) {
+      return false;
+    }
+    
+    // Clear existing data
+    this.tonalities.clear();
+    
+    // Convert global data to Tonality objects
+    try {
+      Object.entries(window.TONALITY_DATA).forEach(([code, data]) => {
+        const tonality = new Tonality(
+          code,
+          data.name,
+          data.type,
+          data.signature,
+          data.chords
+        );
         
-        // Создаем все возможные комбинации нот и типов
-        notes.forEach(note => {
-            types.forEach(type => {
-                this.tonalities.push(new Tonality(note, type));
-            });
+        this.addTonality(tonality);
+      });
+      
+      this._loaded = true;
+      
+      // Publish event for data initialization
+      if (eventBus) {
+        eventBus.publish('tonalitiesLoaded', {
+          count: this.tonalities.size,
+          source: 'legacy'
         });
+      }
+      
+      console.log(`Initialized ${this.tonalities.size} tonalities from global data`);
+      return true;
+    } catch (error) {
+      console.error('Error initializing tonalities from global data:', error);
+      return false;
     }
-
-    /**
-     * Получение всех тональностей
-     * @returns {Array<Tonality>} - Массив всех тональностей
-     */
-    getAll() {
-        return [...this.tonalities];
-    }
-
-    /**
-     * Получение тональности по ноте и типу
-     * @param {string} note - Нота тональности
-     * @param {string} type - Тип тональности
-     * @returns {Tonality|null} - Найденная тональность или null
-     */
-    getTonality(note, type) {
-        return this.tonalities.find(t => t.note === note && t.type === type) || null;
-    }
-
-    /**
-     * Получение тональностей, отсортированных по кругу квинт
-     * @returns {Array<Tonality>} - Отсортированные тональности
-     */
-    getSortedByCircleOfFifths() {
-        return [...this.tonalities].sort((a, b) => {
-            return a.getCircleOfFifthsIndex() - b.getCircleOfFifthsIndex();
-        });
-    }
-
-    /**
-     * Получение тональностей определенного типа
-     * @param {string} type - Тип тональности ('dur' или 'moll')
-     * @returns {Array<Tonality>} - Тональности указанного типа
-     */
-    getByType(type) {
-        return this.tonalities.filter(t => t.type === type);
-    }
+  }
+  
+  /**
+   * Generate chord set for major tonality
+   * @param {string} rootNote - Root note
+   * @returns {Object} Chord set with basic and seventh chords
+   * @private
+   */
+  _generateMajorChords(rootNote) {
+    // Helper function to generate chords based on scale degrees
+    const generateChords = (root, patterns) => {
+      const notes = this._getMajorScaleNotes(root);
+      return patterns.map((pattern, i) => {
+        const note = notes[i];
+        return pattern.replace('*', note);
+      });
+    };
+    
+    // Chord patterns for major key
+    const basicPatterns = ['*', '*m', '*m', '*', '*', '*m', '*dim'];
+    const seventhPatterns = ['*maj7', '*m7', '*m7', '*maj7', '*7', '*m7', '*m7b5'];
+    
+    return {
+      basic: generateChords(rootNote, basicPatterns),
+      seventh: generateChords(rootNote, seventhPatterns)
+    };
+  }
+  
+  /**
+   * Generate chord set for minor tonality
+   * @param {string} minorCode - Minor tonality code (e.g., "Am")
+   * @returns {Object} Chord set with basic and seventh chords
+   * @private
+   */
+  _generateMinorChords(minorCode) {
+    // Helper function to generate chords based on scale degrees
+    const generateChords = (minorRoot, patterns) => {
+      // Extract root note from minor code (e.g., "Am" -> "A")
+      const root = minorRoot.slice(0, -1);
+      const notes = this._getMinorScaleNotes(root);
+      return patterns.map((pattern, i) => {
+        const note = notes[i];
+        return pattern.replace('*', note);
+      });
+    };
+    
+    // Chord patterns for natural minor key
+    const basicPatterns = ['*m', '*dim', '*', '*m', '*m', '*', '*'];
+    const seventhPatterns = ['*m7', '*m7b5', '*maj7', '*m7', '*m7', '*maj7', '*7'];
+    
+    return {
+      basic: generateChords(minorCode, basicPatterns),
+      seventh: generateChords(minorCode, seventhPatterns)
+    };
+  }
+  
+  /**
+   * Get major scale notes
+   * @param {string} rootNote - Root note
+   * @returns {Array} Array of 7 notes in the major scale
+   * @private
+   */
+  _getMajorScaleNotes(rootNote) {
+    // Simplified version - in a real implementation, this would calculate
+    // based on actual music theory intervals, but for simplicity, we'll use mapping
+    const majorScales = {
+      'C': ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
+      'G': ['G', 'A', 'B', 'C', 'D', 'E', 'F#'],
+      'D': ['D', 'E', 'F#', 'G', 'A', 'B', 'C#'],
+      'A': ['A', 'B', 'C#', 'D', 'E', 'F#', 'G#'],
+      'E': ['E', 'F#', 'G#', 'A', 'B', 'C#', 'D#'],
+      'B': ['B', 'C#', 'D#', 'E', 'F#', 'G#', 'A#'],
+      'F#': ['F#', 'G#', 'A#', 'B', 'C#', 'D#', 'E#'],
+      
+      'F': ['F', 'G', 'A', 'Bb', 'C', 'D', 'E'],
+      'Bb': ['Bb', 'C', 'D', 'Eb', 'F', 'G', 'A'],
+      'Eb': ['Eb', 'F', 'G', 'Ab', 'Bb', 'C', 'D'],
+      'Ab': ['Ab', 'Bb', 'C', 'Db', 'Eb', 'F', 'G'],
+      'Db': ['Db', 'Eb', 'F', 'Gb', 'Ab', 'Bb', 'C']
+    };
+    
+    return majorScales[rootNote] || [];
+  }
+  
+  /**
+   * Get minor scale notes
+   * @param {string} rootNote - Root note
+   * @returns {Array} Array of 7 notes in the natural minor scale
+   * @private
+   */
+  _getMinorScaleNotes(rootNote) {
+    // Simplified version - in a real implementation, this would calculate
+    // based on actual music theory intervals
+    const minorScales = {
+      'A': ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+      'E': ['E', 'F#', 'G', 'A', 'B', 'C', 'D'],
+      'B': ['B', 'C#', 'D', 'E', 'F#', 'G', 'A'],
+      'F#': ['F#', 'G#', 'A', 'B', 'C#', 'D', 'E'],
+      'C#': ['C#', 'D#', 'E', 'F#', 'G#', 'A', 'B'],
+      'G#': ['G#', 'A#', 'B', 'C#', 'D#', 'E', 'F#'],
+      
+      'D': ['D', 'E', 'F', 'G', 'A', 'Bb', 'C'],
+      'G': ['G', 'A', 'Bb', 'C', 'D', 'Eb', 'F'],
+      'C': ['C', 'D', 'Eb', 'F', 'G', 'Ab', 'Bb'],
+      'F': ['F', 'G', 'Ab', 'Bb', 'C', 'Db', 'Eb'],
+      'Bb': ['Bb', 'C', 'Db', 'Eb', 'F', 'Gb', 'Ab'],
+      'Eb': ['Eb', 'F', 'Gb', 'Ab', 'Bb', 'Cb', 'Db']
+    };
+    
+    return minorScales[rootNote] || [];
+  }
 }
 
-// Создаем экземпляр коллекции тональностей для использования в приложении
-export const tonalityCollection = new TonalityCollection();
+// Create and export singleton instance
+const tonalityCollection = new TonalityCollection();
 
-// Экспортируем по умолчанию
-export default tonalityCollection;
+// Initialize if window is defined (browser environment)
+if (typeof window !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      // Try to initialize from global data first, fallback to defaults
+      if (!tonalityCollection.initializeFromGlobalData()) {
+        tonalityCollection.loadDefaultTonalities();
+      }
+    });
+  } else {
+    // Document already loaded, initialize now
+    if (!tonalityCollection.initializeFromGlobalData()) {
+      tonalityCollection.loadDefaultTonalities();
+    }
+  }
+}
+
+export { Tonality, tonalityCollection };

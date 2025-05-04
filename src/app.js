@@ -360,6 +360,20 @@ document.addEventListener('DOMContentLoaded', () => {
             fileInput.click();
         });
     }
+    
+    // Обработчик для кнопки дублирования блока
+    const duplicateBlockButton = document.getElementById('duplicate-block');
+    if (duplicateBlockButton) {
+        duplicateBlockButton.addEventListener('click', () => {
+            const currentBlockId = store.get('currentBlockId');
+            if (currentBlockId) {
+                // Находим компонент менеджера блоков и вызываем метод дублирования
+                if (app.components.blockManager) {
+                    app.components.blockManager.handleDuplicateBlock(currentBlockId);
+                }
+            }
+        });
+    }
 });
 
 // Экспортируем приложение по умолчанию

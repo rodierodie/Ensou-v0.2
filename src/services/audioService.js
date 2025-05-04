@@ -38,8 +38,14 @@ export class AudioService {
         }
 
         try {
+            // Проверка, загружена ли библиотека Tone.js
+            if (!window.Tone) {
+                console.error('Библиотека Tone.js не загружена');
+                return Promise.reject(new Error('Библиотека Tone.js не загружена'));
+            }
+            
             // Создаем синтезатор с подходящими настройками
-            this.synth = new Tone.PolySynth(Tone.Synth, {
+            this.synth = new window.Tone.PolySynth(window.Tone.Synth, {
                 oscillator: {
                     type: 'triangle'
                 },
@@ -52,7 +58,7 @@ export class AudioService {
             }).toDestination();
             
             // Создаем метроном
-            this.metronome = new Tone.MembraneSynth({
+            this.metronome = new window.Tone.MembraneSynth({
                 pitchDecay: 0.05,
                 octaves: 4,
                 oscillator: {
@@ -66,13 +72,33 @@ export class AudioService {
                     attackCurve: 'exponential'
                 }
             }).toDestination();
-            this.metronome.volume.value = -10; // Уменьшаем громкость метронома
+            
+            if (this.metronome) {
+                this.metronome.volume.value = -10; // Уменьшаем громкость метронома
+            }
             
             // Запускаем аудио контекст при взаимодействии пользователя
-            await Tone.start();
+            try {
+                await window.Tone.start();
+                console.log('Audio context started successfully');
+            } catch (e) {
+                console.warn('Failed to start audio context. Will try again on user interaction.');
+                // Добавляем обработчик для запуска аудио контекста при клике пользователя
+                const startAudioOnClick = async () => {
+                    try {
+                        await window.Tone.start();
+                        console.log('Audio context started on user interaction');
+                        // Удаляем обработчик, если аудио контекст запущен
+                        document.removeEventListener('click', startAudioOnClick);
+                    } catch (err) {
+                        console.error('Failed to start audio context on user interaction:', err);
+                    }
+                };
+                document.addEventListener('click', startAudioOnClick, { once: true });
+            }
             
             // Устанавливаем темп
-            Tone.Transport.bpm.value = this.tempo;
+            window.Tone.Transport.bpm.value = this.tempo;
             
             this.initialized = true;
             return Promise.resolve();
@@ -88,7 +114,11 @@ export class AudioService {
      * @returns {number} - Частота ноты в герцах
      */
     noteToFrequency(note) {
-        return Tone.Frequency(note).toFrequency();
+        if (!window.Tone) {
+            console.error('Библиотека Tone.js не загружена');
+            return 0;
+        }
+        return window.Tone.Frequency(note).toFrequency();
     }
 
     /**
@@ -134,7 +164,16 @@ export class AudioService {
      */
     async playChord(notes, duration = 1, octave = 4) {
         if (!this.initialized) {
-            await this.initialize();
+            try {
+                await this.initialize();
+            } catch (error) {
+                console.error('Не удалось инициализировать аудио сервис:', error);
+                return Promise.reject(error);
+            }
+        }
+        
+        if (!this.synth || !notes || !notes.length) {
+            return Promise.resolve();
         }
         
         return new Promise(resolve => {
@@ -164,7 +203,16 @@ export class AudioService {
      */
     async playArpeggio(notes, totalDuration = 1, octave = 4) {
         if (!this.initialized) {
-            await this.initialize();
+            try {
+                await this.initialize();
+            } catch (error) {
+                console.error('Не удалось инициализировать аудио сервис:', error);
+                return Promise.reject(error);
+            }
+        }
+        
+        if (!this.synth || !notes || !notes.length) {
+            return Promise.resolve();
         }
         
         return new Promise(resolve => {
@@ -193,7 +241,16 @@ export class AudioService {
      */
     async playSequence(sequence, startIndex = 0) {
         if (!this.initialized) {
-            await this.initialize();
+            try {
+                await this.initialize();
+            } catch (error) {
+                console.error('Не удалось инициализировать аудио сервис:', error);
+                return Promise.reject(error);
+            }
+        }
+        
+        if (!sequence || sequence.length === 0) {
+            return Promise.resolve();
         }
         
         // Останавливаем текущее воспроизведение
@@ -242,12 +299,17 @@ export class AudioService {
         }
         
         // Иначе воспроизводим аккорд
-        return this.playChord(item.chord.getNotes(), durationInSeconds).then(() => {
+        try {
+            await this.playChord(item.chord.getNotes(), durationInSeconds);
             if (this.isPlaying) {
                 return this.playNextChord();
             }
             return Promise.resolve();
-        });
+        } catch (error) {
+            console.error('Ошибка при воспроизведении аккорда:', error);
+            this.stopPlayback();
+            return Promise.reject(error);
+        }
     }
 
     /**
@@ -273,8 +335,8 @@ export class AudioService {
      */
     setTempo(bpm) {
         this.tempo = bpm;
-        if (this.initialized) {
-            Tone.Transport.bpm.value = bpm;
+        if (this.initialized && window.Tone) {
+            window.Tone.Transport.bpm.value = bpm;
         }
     }
 
@@ -304,29 +366,34 @@ export class AudioService {
      * Запуск метронома
      */
     startMetronome() {
-        if (!this.initialized || !this.metronomeEnabled) {
+        if (!this.initialized || !this.metronomeEnabled || !window.Tone) {
             return;
         }
         
         // Запускаем метроном используя Tone.js Transport
-        Tone.Transport.scheduleRepeat(time => {
+        window.Tone.Transport.scheduleRepeat(time => {
+            // Проверяем, что метроном существует
+            if (!this.metronome) return;
+            
             // Играем более высокий звук на первой доле такта
-            if (Tone.Transport.position.split(':')[1] === '0') {
+            if (window.Tone.Transport.position.split(':')[1] === '0') {
                 this.metronome.triggerAttackRelease('C3', '16n', time);
             } else {
                 this.metronome.triggerAttackRelease('C2', '16n', time);
             }
         }, '4n'); // Четвертная нота
         
-        Tone.Transport.start();
+        window.Tone.Transport.start();
     }
 
     /**
      * Остановка метронома
      */
     stopMetronome() {
-        Tone.Transport.stop();
-        Tone.Transport.cancel(); // Отменяем все запланированные события
+        if (!window.Tone) return;
+        
+        window.Tone.Transport.stop();
+        window.Tone.Transport.cancel(); // Отменяем все запланированные события
     }
 }
 

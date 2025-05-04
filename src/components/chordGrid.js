@@ -104,6 +104,8 @@ export class ChordGridComponent extends BaseComponent {
         // Воспроизводим аккорд
         audioService.initialize().then(() => {
             audioService.playChord(chord.getNotes(), 1);
+        }).catch(error => {
+            console.error("Ошибка при инициализации аудио:", error);
         });
         
         // Обновляем выбранный аккорд в хранилище

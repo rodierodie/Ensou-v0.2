@@ -93,6 +93,8 @@ export class SequenceComponent extends BaseComponent {
                 // Воспроизводим аккорд
                 audioService.initialize().then(() => {
                     audioService.playChord(chord.getNotes(), 1);
+                }).catch(error => {
+                    console.error("Ошибка при инициализации аудио:", error);
                 });
                 
                 // Выбираем аккорд
@@ -360,6 +362,3 @@ export class SequenceComponent extends BaseComponent {
         return fragment;
     }
 }
-
-// Экспортируем компонент
-export default SequenceComponent;
