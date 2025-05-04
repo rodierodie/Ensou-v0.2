@@ -10,12 +10,10 @@ import eventBus from '../core/eventBus.js';
 /**
  * Initialize data models
  * This replaces the global window.CHORD_DATA and window.TONALITY_DATA objects
+ * @returns {Promise} Promise that resolves when initialization is complete
  */
-export default function initializeDataModels() {
+export default async function initializeDataModels() {
   console.log('Initializing data models...');
-  
-  // Load chord and tonality data 
-  // (could be loaded from local JSON files or an API in a more sophisticated implementation)
   
   // First check if we have data already in collections
   if (chordCollection.getAllChords().length > 0 && tonalityCollection.getAllTonalities().length > 0) {
@@ -23,71 +21,100 @@ export default function initializeDataModels() {
     return;
   }
   
-  // Load default chord and tonality data if no data exists
-  loadDefaultData();
-  
-  // Log initialization complete
-  console.log(`Initialized ${chordCollection.getAllChords().length} chords`);
-  console.log(`Initialized ${tonalityCollection.getAllTonalities().length} tonalities`);
-  
-  // Publish event for data initialization complete
-  eventBus.publish('dataModelsInitialized', {
-    chordsCount: chordCollection.getAllChords().length,
-    tonalitiesCount: tonalityCollection.getAllTonalities().length
-  });
+  try {
+    // Load default chord and tonality data if no data exists
+    await loadDefaultData();
+    
+    // Log initialization complete
+    console.log(`Initialized ${chordCollection.getAllChords().length} chords`);
+    console.log(`Initialized ${tonalityCollection.getAllTonalities().length} tonalities`);
+    
+    // Publish event for data initialization complete
+    eventBus.publish('dataModelsInitialized', {
+      chordsCount: chordCollection.getAllChords().length,
+      tonalitiesCount: tonalityCollection.getAllTonalities().length
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error initializing data models:', error);
+    throw error;
+  }
 }
 
 /**
  * Load default data into collections
  * This is the migration path from global objects to proper models
+ * @returns {Promise} Promise that resolves when data is loaded
  */
-function loadDefaultData() {
-  // Try to load from global objects first (for backward compatibility during migration)
-  if (typeof window !== 'undefined') {
-    // Migrate from window.CHORD_DATA if it exists
-    if (window.CHORD_DATA) {
-      Object.entries(window.CHORD_DATA).forEach(([name, data]) => {
-        const chord = new Chord(
-          name,
-          data.notes,
-          data.fullName,
-          data.description,
-          data.functions
-        );
-        chordCollection.addChord(chord);
-      });
+async function loadDefaultData() {
+  try {
+    // Try to load from global objects first (for backward compatibility during migration)
+    let dataLoaded = false;
+    
+    if (typeof window !== 'undefined') {
+      // Migrate from window.CHORD_DATA if it exists
+      if (window.CHORD_DATA) {
+        Object.entries(window.CHORD_DATA).forEach(([name, data]) => {
+          const chord = new Chord(
+            name,
+            data.notes,
+            data.fullName,
+            data.description,
+            data.functions
+          );
+          chordCollection.addChord(chord);
+        });
+        
+        console.log(`Migrated ${chordCollection.getAllChords().length} chords from global CHORD_DATA`);
+        dataLoaded = true;
+      }
       
-      // Flag global object as deprecated (comment out if you want to keep it during migration)
-      // window.CHORD_DATA = undefined;
-      console.warn('window.CHORD_DATA is deprecated. Use chordCollection instead.');
+      // Migrate from window.TONALITY_DATA if it exists
+      if (window.TONALITY_DATA) {
+        Object.entries(window.TONALITY_DATA).forEach(([code, data]) => {
+          const tonality = new Tonality(
+            code,
+            data.name,
+            data.type,
+            data.signature,
+            data.chords
+          );
+          tonalityCollection.addTonality(tonality);
+        });
+        
+        console.log(`Migrated ${tonalityCollection.getAllTonalities().length} tonalities from global TONALITY_DATA`);
+        dataLoaded = true;
+      }
     }
     
-    // Migrate from window.TONALITY_DATA if it exists
-    if (window.TONALITY_DATA) {
-      Object.entries(window.TONALITY_DATA).forEach(([code, data]) => {
-        const tonality = new Tonality(
-          code,
-          data.name,
-          data.type,
-          data.signature,
-          data.chords
-        );
-        tonalityCollection.addTonality(tonality);
-      });
-      
-      // Flag global object as deprecated (comment out if you want to keep it during migration)
-      // window.TONALITY_DATA = undefined;
-      console.warn('window.TONALITY_DATA is deprecated. Use tonalityCollection instead.');
+    // If no data was loaded from global objects, initialize with default data
+    if (!dataLoaded) {
+      console.log('Initializing with default data');
+      await initializeDefaultData();
     }
+    
+    return true;
+  } catch (error) {
+    console.error('Error loading default data:', error);
+    throw error;
   }
-  
-  // If no data was loaded from global objects, initialize with default data
-  if (chordCollection.getAllChords().length === 0) {
+}
+
+/**
+ * Initialize default data if no data is available
+ * @returns {Promise} Promise that resolves when default data is initialized
+ */
+async function initializeDefaultData() {
+  try {
+    // Initialize chords and tonalities
     initializeDefaultChords();
-  }
-  
-  if (tonalityCollection.getAllTonalities().length === 0) {
     initializeDefaultTonalities();
+    
+    return true;
+  } catch (error) {
+    console.error('Error initializing default data:', error);
+    throw error;
   }
 }
 
@@ -95,6 +122,8 @@ function loadDefaultData() {
  * Initialize default chords if no data is available
  */
 function initializeDefaultChords() {
+  // Let's define a minimum set of chords for each tonality
+
   // C Major chords
   const cMajor = new Chord(
     'C',
@@ -109,47 +138,120 @@ function initializeDefaultChords() {
   );
   chordCollection.addChord(cMajor);
   
-  const cMinor = new Chord(
-    'Cm',
-    ['C4', 'Eb4', 'G4'],
-    'До минор',
-    'Минорное трезвучие',
-    {
-      'Cm': { function: 'tonic', degree: 'i', label: 'T' },
-      'Eb': { function: 'relative major', degree: 'III', label: 'R' }
-    }
-  );
-  chordCollection.addChord(cMinor);
-  
-  // G Major chords
-  const gMajor = new Chord(
-    'G',
-    ['G3', 'B3', 'D4'],
-    'Соль мажор',
-    'Мажорное трезвучие',
-    {
-      'G': { function: 'tonic', degree: 'I', label: 'T' },
-      'C': { function: 'subdominant', degree: 'IV', label: 'S' },
-      'D': { function: 'dominant', degree: 'V', label: 'D' }
-    }
-  );
-  chordCollection.addChord(gMajor);
-  
-  // D Minor chords
+  // D minor chord
   const dMinor = new Chord(
     'Dm',
     ['D4', 'F4', 'A4'],
     'Ре минор',
     'Минорное трезвучие',
     {
-      'Dm': { function: 'tonic', degree: 'i', label: 'T' },
-      'F': { function: 'relative major', degree: 'III', label: 'R' }
+      'C': { function: 'subdominant', degree: 'II', label: 'S' },
+      'Dm': { function: 'tonic', degree: 'i', label: 'T' }
     }
   );
   chordCollection.addChord(dMinor);
   
-  // Add more default chords as needed
-  // ...
+  // E minor chord
+  const eMinor = new Chord(
+    'Em',
+    ['E4', 'G4', 'B4'],
+    'Ми минор',
+    'Минорное трезвучие',
+    {
+      'C': { function: 'mediant', degree: 'III', label: 'M' },
+      'Em': { function: 'tonic', degree: 'i', label: 'T' }
+    }
+  );
+  chordCollection.addChord(eMinor);
+  
+  // F Major chord
+  const fMajor = new Chord(
+    'F',
+    ['F4', 'A4', 'C5'],
+    'Фа мажор',
+    'Мажорное трезвучие',
+    {
+      'C': { function: 'subdominant', degree: 'IV', label: 'S' },
+      'F': { function: 'tonic', degree: 'I', label: 'T' }
+    }
+  );
+  chordCollection.addChord(fMajor);
+  
+  // G Major chord
+  const gMajor = new Chord(
+    'G',
+    ['G4', 'B4', 'D5'],
+    'Соль мажор',
+    'Мажорное трезвучие',
+    {
+      'C': { function: 'dominant', degree: 'V', label: 'D' },
+      'G': { function: 'tonic', degree: 'I', label: 'T' }
+    }
+  );
+  chordCollection.addChord(gMajor);
+  
+  // A minor chord
+  const aMinor = new Chord(
+    'Am',
+    ['A4', 'C5', 'E5'],
+    'Ля минор',
+    'Минорное трезвучие',
+    {
+      'C': { function: 'submediant', degree: 'VI', label: 'Sm' },
+      'Am': { function: 'tonic', degree: 'i', label: 'T' }
+    }
+  );
+  chordCollection.addChord(aMinor);
+  
+  // B diminished chord
+  const bDiminished = new Chord(
+    'Bdim',
+    ['B4', 'D5', 'F5'],
+    'Си уменьшенный',
+    'Уменьшенное трезвучие',
+    {
+      'C': { function: 'leading tone', degree: 'VII', label: 'L' }
+    }
+  );
+  chordCollection.addChord(bDiminished);
+  
+  // Add seventh chords
+  
+  // C Major 7
+  const cMaj7 = new Chord(
+    'Cmaj7',
+    ['C4', 'E4', 'G4', 'B4'],
+    'До мажор септаккорд',
+    'Большой мажорный септаккорд',
+    {
+      'C': { function: 'tonic', degree: 'Imaj7', label: 'Tmaj7' }
+    }
+  );
+  chordCollection.addChord(cMaj7);
+  
+  // D minor 7
+  const dMin7 = new Chord(
+    'Dm7',
+    ['D4', 'F4', 'A4', 'C5'],
+    'Ре минор септаккорд',
+    'Малый минорный септаккорд',
+    {
+      'C': { function: 'supertonic', degree: 'IIm7', label: 'IIm7' }
+    }
+  );
+  chordCollection.addChord(dMin7);
+  
+  // G dominant 7
+  const g7 = new Chord(
+    'G7',
+    ['G4', 'B4', 'D5', 'F5'],
+    'Соль доминантсептаккорд',
+    'Малый мажорный септаккорд',
+    {
+      'C': { function: 'dominant', degree: 'V7', label: 'D7' }
+    }
+  );
+  chordCollection.addChord(g7);
 }
 
 /**
@@ -208,12 +310,35 @@ function initializeDefaultTonalities() {
   );
   tonalityCollection.addTonality(eMinor);
   
-  // Add more default tonalities as needed
-  // ...
+  // F Major
+  const fMajor = new Tonality(
+    'F',
+    'Фа мажор',
+    'major',
+    '1b',
+    {
+      basic: ['F', 'Gm', 'Am', 'Bb', 'C', 'Dm', 'Edim'],
+      seventh: ['Fmaj7', 'Gm7', 'Am7', 'Bbmaj7', 'C7', 'Dm7', 'Em7b5']
+    }
+  );
+  tonalityCollection.addTonality(fMajor);
+  
+  // D Minor
+  const dMinor = new Tonality(
+    'Dm',
+    'Ре минор',
+    'minor',
+    '1b',
+    {
+      basic: ['Dm', 'Edim', 'F', 'Gm', 'Am', 'Bb', 'C'],
+      seventh: ['Dm7', 'Em7b5', 'Fmaj7', 'Gm7', 'Am7', 'Bbmaj7', 'C7']
+    }
+  );
+  tonalityCollection.addTonality(dMinor);
 }
 
 /**
- * Create proxy for global objects during transition
+ * Create proxy objects for global access
  * This maintains backward compatibility while migrating to model collections
  */
 export function createGlobalProxies() {
@@ -221,53 +346,95 @@ export function createGlobalProxies() {
   
   // Create proxy for CHORD_DATA
   if (!window.CHORD_DATA) {
-    Object.defineProperty(window, 'CHORD_DATA', {
-      get: function() {
-        // Convert collection to format expected by legacy code
-        const chordData = {};
-        chordCollection.getAllChords().forEach(chord => {
-          chordData[chord.name] = {
-            notes: chord.notes,
-            fullName: chord.fullName,
-            description: chord.description,
-            functions: chord.functions
-          };
-        });
-        
-        // Log deprecation warning in development mode
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn('Access to deprecated window.CHORD_DATA detected');
-        }
-        
-        return chordData;
-      },
-      configurable: true
-    });
+    window.CHORD_DATA = createChordDataProxy();
   }
   
   // Create proxy for TONALITY_DATA
   if (!window.TONALITY_DATA) {
-    Object.defineProperty(window, 'TONALITY_DATA', {
-      get: function() {
-        // Convert collection to format expected by legacy code
-        const tonalityData = {};
-        tonalityCollection.getAllTonalities().forEach(tonality => {
-          tonalityData[tonality.code] = {
-            name: tonality.name,
-            type: tonality.type,
-            signature: tonality.signature,
-            chords: tonality.chords
-          };
-        });
-        
-        // Log deprecation warning in development mode
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn('Access to deprecated window.TONALITY_DATA detected');
-        }
-        
-        return tonalityData;
-      },
-      configurable: true
-    });
+    window.TONALITY_DATA = createTonalityDataProxy();
   }
+  
+  console.log('Created global data proxies for backward compatibility');
+}
+
+/**
+ * Create proxy for chord data
+ * @returns {Object} Proxy object for chord data
+ */
+function createChordDataProxy() {
+  // Convert collection to format expected by legacy code
+  const chordData = {};
+  chordCollection.getAllChords().forEach(chord => {
+    chordData[chord.name] = {
+      notes: chord.notes,
+      fullName: chord.fullName,
+      description: chord.description,
+      functions: chord.functions
+    };
+  });
+  
+  return new Proxy(chordData, {
+    get(target, property) {
+      // Check if property exists in target
+      if (property in target) {
+        return target[property];
+      }
+      
+      // Try to get from chord collection
+      const chord = chordCollection.getChord(property);
+      if (chord) {
+        // Add to proxy target
+        target[property] = {
+          notes: chord.notes,
+          fullName: chord.fullName,
+          description: chord.description,
+          functions: chord.functions
+        };
+        return target[property];
+      }
+      
+      return undefined;
+    }
+  });
+}
+
+/**
+ * Create proxy for tonality data
+ * @returns {Object} Proxy object for tonality data
+ */
+function createTonalityDataProxy() {
+  // Convert collection to format expected by legacy code
+  const tonalityData = {};
+  tonalityCollection.getAllTonalities().forEach(tonality => {
+    tonalityData[tonality.code] = {
+      name: tonality.name,
+      type: tonality.type,
+      signature: tonality.signature,
+      chords: tonality.chords
+    };
+  });
+  
+  return new Proxy(tonalityData, {
+    get(target, property) {
+      // Check if property exists in target
+      if (property in target) {
+        return target[property];
+      }
+      
+      // Try to get from tonality collection
+      const tonality = tonalityCollection.getTonality(property);
+      if (tonality) {
+        // Add to proxy target
+        target[property] = {
+          name: tonality.name,
+          type: tonality.type,
+          signature: tonality.signature,
+          chords: tonality.chords
+        };
+        return target[property];
+      }
+      
+      return undefined;
+    }
+  });
 }

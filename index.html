@@ -6,9 +6,53 @@
     <title>ChordPlayer - Изучение музыкальной гармонии</title>
     <link rel="stylesheet" href="css/style.css">
     
-    <!-- Загрузка внешних библиотек -->
+    <!-- External libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/15.1.5/Tone.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@3.1.1/browser/midiwriter.min.js"></script>
+    
+    <!-- Legacy data initialization (these need to exist before modules load) -->
+    <script>
+        // Initialize global data objects with some minimal defaults
+        window.CHORD_DATA = {
+            'C': {
+                notes: ['C4', 'E4', 'G4'],
+                fullName: 'До мажор',
+                description: 'Мажорное трезвучие',
+                functions: {
+                    'C': { function: 'tonic', degree: 'I', label: 'T' }
+                }
+            },
+            'Am': {
+                notes: ['A3', 'C4', 'E4'],
+                fullName: 'Ля минор',
+                description: 'Минорное трезвучие',
+                functions: {
+                    'Am': { function: 'tonic', degree: 'i', label: 'T' }
+                }
+            }
+        };
+        
+        window.TONALITY_DATA = {
+            'C': {
+                name: 'До мажор',
+                type: 'major',
+                signature: '0',
+                chords: {
+                    basic: ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim'],
+                    seventh: ['Cmaj7', 'Dm7', 'Em7', 'Fmaj7', 'G7', 'Am7', 'Bm7b5']
+                }
+            },
+            'Am': {
+                name: 'Ля минор',
+                type: 'minor',
+                signature: '0',
+                chords: {
+                    basic: ['Am', 'Bdim', 'C', 'Dm', 'Em', 'F', 'G'],
+                    seventh: ['Am7', 'Bm7b5', 'Cmaj7', 'Dm7', 'Em7', 'Fmaj7', 'G7']
+                }
+            }
+        };
+    </script>
 </head>
 <body>
     <div class="container">
@@ -38,53 +82,93 @@
         </header>
 
         <main class="app-content">
-            <!-- Блоки трека -->
+            <!-- Block tabs -->
             <section class="blocks-tabs">
                 <div id="block-tabs-container" class="block-tabs-container">
-                    <!-- Блоки будут добавляться динамически -->
+                    <!-- Blocks will be added dynamically -->
+                    <button class="block-tab active">A1</button>
+                    <button class="add-block">+</button>
                 </div>
             </section>
 
-            <!-- Активный блок -->
+            <!-- Active block -->
             <section class="active-block" id="current-block">
                 <div class="block-header">
                     <h2 class="block-title">A1</h2>
                     <button class="duplicate-block">+ Дублировать блок</button>
                 </div>
 
-                <!-- Селектор тональности -->
+                <!-- Tonality selector -->
                 <div class="tonality-section">
                     <div id="tonality-selector-container" class="tonality-selector-container">
-                        <!-- Тональность будет добавлена динамически -->
+                        <!-- Will be populated by JS -->
+                        <div class="tonality-dropdowns">
+                            <div class="dropdown-container">
+                                <label for="root-note-select">Нота:</label>
+                                <select id="root-note-select">
+                                    <option value="C">C (До)</option>
+                                    <option value="A">A (Ля)</option>
+                                </select>
+                            </div>
+                            <div class="dropdown-container">
+                                <label for="tonality-type-select">Тип:</label>
+                                <select id="tonality-type-select">
+                                    <option value="major">Мажор</option>
+                                    <option value="minor">Минор</option>
+                                </select>
+                            </div>
+                            <div class="current-tonality">
+                                <span class="tonality-code" id="tonality-code">C</span>
+                                <span class="tonality-name" id="tonality-name">(До мажор)</span>
+                            </div>
+                        </div>
                     </div>
                     <button id="toggle-circle" class="toggle-circle">Скрыть круг тональностей</button>
                     <div id="tonality-circle-container" class="tonality-circle-container">
-                        <!-- Круг тональностей будет добавлен динамически -->
+                        <!-- Tonality circle will be added dynamically -->
                     </div>
                 </div>
 
-                <!-- Секция с аккордами -->
+                <!-- Chord sections -->
                 <div class="chord-sections">
                     <div class="chord-section">
                         <h3>Основные аккорды</h3>
                         <div id="basic-chords" class="chord-grid">
-                            <!-- Аккорды будут добавлены динамически -->
+                            <!-- Will be populated by JS -->
+                            <div class="chord-button" data-chord="C">C</div>
+                            <div class="chord-button" data-chord="Dm">Dm</div>
+                            <div class="chord-button" data-chord="Em">Em</div>
+                            <div class="chord-button" data-chord="F">F</div>
+                            <div class="chord-button" data-chord="G">G</div>
+                            <div class="chord-button" data-chord="Am">Am</div>
                         </div>
                     </div>
                     <div class="chord-section">
                         <h3>Септаккорды</h3>
                         <div id="seventh-chords" class="chord-grid">
-                            <!-- Септаккорды будут добавлены динамически -->
+                            <!-- Will be populated by JS -->
+                            <div class="chord-button" data-chord="Cmaj7">Cmaj7</div>
+                            <div class="chord-button" data-chord="Dm7">Dm7</div>
+                            <div class="chord-button" data-chord="G7">G7</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Информация об аккорде -->
+                <!-- Chord info -->
                 <div class="chord-info-section" id="chord-info-section">
-                    <!-- Информация будет добавлена динамически -->
+                    <!-- Will be populated by JS -->
+                    <div class="chord-info-content">
+                        <div class="chord-name">C (До мажор)</div>
+                        <p class="chord-description">Мажорное трезвучие</p>
+                        <p class="chord-notes">Ноты: C, E, G</p>
+                    </div>
+                    <div class="chord-info-controls">
+                        <button class="play-chord-button">▶ Проиграть</button>
+                        <button class="add-chord-button">+ Добавить в последовательность</button>
+                    </div>
                 </div>
 
-                <!-- Секвенция аккордов -->
+                <!-- Sequence -->
                 <div class="sequence-section">
                     <h3>Секвенция</h3>
                     <div class="sequence-controls">
@@ -95,7 +179,8 @@
                         </div>
                     </div>
                     <div id="sequence-container" class="sequence-container">
-                        <!-- Элементы секвенции будут добавлены динамически -->
+                        <!-- Will be populated by JS -->
+                        <div class="timeline-placeholder">Добавьте аккорды в последовательность</div>
                     </div>
                     <div class="export-controls">
                         <button id="export-midi" class="export-button">Экспорт в MIDI</button>
@@ -105,7 +190,7 @@
             </section>
         </main>
 
-        <!-- Подвал -->
+        <!-- Footer -->
         <footer class="app-footer">
             <div class="version">
                 <span>Версия 2.0</span>
@@ -121,17 +206,191 @@
         </footer>
     </div>
 
-    <!-- Модальные окна -->
+    <!-- Modal container -->
     <div id="modal-container" class="modal-container hidden">
-        <!-- Содержимое модальных окон будет добавляться динамически -->
+        <!-- Modal content will be added dynamically -->
     </div>
 
-<!-- Подключение только основного модуля приложения -->
-<script type="module" src="js/app.js"></script>
+    <!-- Loading indicator that will be hidden once the app loads -->
+    <div id="loading-indicator" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 9999;">
+        <div style="background-color: white; padding: 20px; border-radius: 5px; text-align: center;">
+            <h3>Загрузка приложения...</h3>
+            <p>Пожалуйста, подождите</p>
+        </div>
+    </div>
+
+    <!-- Debug log container -->
+    <div id="debug-log" style="display: none; position: fixed; bottom: 10px; right: 10px; width: 300px; height: 200px; background-color: rgba(0,0,0,0.8); color: white; padding: 10px; overflow: auto; z-index: 9999; font-family: monospace; font-size: 12px;">
+        <div>Debug Log</div>
+        <div id="debug-log-content"></div>
+    </div>
+
+    <!-- Legacy global script (first for backward compatibility) -->
+    <script>
+        // Legacy global objects (for backward compatibility)
+        window.UI = {
+            getCurrentChord: function() { return 'C'; },
+            getCurrentTonality: function() { return 'C'; },
+            setCurrentChord: function(chord) { console.log('Setting chord:', chord); },
+            changeTonality: function(tonality) { console.log('Changing tonality:', tonality); }
+        };
+        
+        window.Sequencer = {
+            isPlaying: false,
+            getSequence: function() { return []; },
+            addChordToSequence: function(chord) { console.log('Adding chord to sequence:', chord); },
+            playSequence: function() { console.log('Playing sequence'); },
+            stopSequence: function() { console.log('Stopping sequence'); }
+        };
+        
+        window.Instrument = {
+            playChord: function(chordName) { 
+                console.log('Playing chord:', chordName); 
+                // Try to play a sound to check if audio is working
+                try {
+                    if (window.Tone) {
+                        const synth = new Tone.Synth().toDestination();
+                        synth.triggerAttackRelease("C4", "8n");
+                        console.log('Tone.js audio played successfully');
+                    }
+                } catch (e) {
+                    console.error('Error playing audio:', e);
+                }
+            }
+        };
+
+        // Debug logger
+        window.debugLog = function(message) {
+            const logContainer = document.getElementById('debug-log');
+            const logContent = document.getElementById('debug-log-content');
+            
+            if (logContainer && logContent) {
+                // Show log container
+                logContainer.style.display = 'block';
+                
+                // Add log message
+                const logItem = document.createElement('div');
+                logItem.textContent = `[${new Date().toISOString().substr(11, 8)}] ${message}`;
+                logContent.appendChild(logItem);
+                
+                // Scroll to bottom
+                logContent.scrollTop = logContent.scrollHeight;
+            }
+            
+            // Also log to console
+            console.log(message);
+        };
+        
+        // Event handlers for basic UI elements to check functionality
+        window.addEventListener('DOMContentLoaded', function() {
+            debugLog('DOM loaded, setting up UI handlers');
+            
+            // Play button
+            const playButton = document.getElementById('play-button');
+            if (playButton) {
+                playButton.addEventListener('click', function() {
+                    debugLog('Play button clicked');
+                    playButton.disabled = true;
+                    document.getElementById('stop-button').disabled = false;
+                    window.Sequencer.playSequence();
+                });
+            }
+            
+            // Stop button
+            const stopButton = document.getElementById('stop-button');
+            if (stopButton) {
+                stopButton.addEventListener('click', function() {
+                    debugLog('Stop button clicked');
+                    stopButton.disabled = true;
+                    document.getElementById('play-button').disabled = false;
+                    window.Sequencer.stopSequence();
+                });
+            }
+            
+            // Add chord button
+            const addChordButton = document.getElementById('add-chord');
+            if (addChordButton) {
+                addChordButton.addEventListener('click', function() {
+                    debugLog('Add chord button clicked');
+                    window.Sequencer.addChordToSequence(window.UI.getCurrentChord());
+                });
+            }
+            
+            // Chord buttons
+            const chordButtons = document.querySelectorAll('.chord-button');
+            chordButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    const chord = button.getAttribute('data-chord');
+                    debugLog('Chord button clicked: ' + chord);
+                    window.UI.setCurrentChord(chord);
+                    window.Instrument.playChord(chord);
+                    
+                    // Update chord info
+                    document.querySelector('.chord-name').textContent = chord + ' (' + (window.CHORD_DATA[chord]?.fullName || chord) + ')';
+                    document.querySelector('.chord-description').textContent = window.CHORD_DATA[chord]?.description || '';
+                    document.querySelector('.chord-notes').textContent = 'Ноты: ' + (window.CHORD_DATA[chord]?.notes.map(n => n.replace(/\d+/g, '')).join(', ') || '');
+                });
+            });
+            
+            // Play chord button
+            const playChordButton = document.querySelector('.play-chord-button');
+            if (playChordButton) {
+                playChordButton.addEventListener('click', function() {
+                    const currentChord = window.UI.getCurrentChord();
+                    debugLog('Play chord button clicked: ' + currentChord);
+                    window.Instrument.playChord(currentChord);
+                });
+            }
+            
+            debugLog('UI handlers set up, attempting to initialize Tone.js');
+            
+            // Initialize Tone.js on first user interaction
+            const startAudio = async () => {
+                try {
+                    if (window.Tone) {
+                        await Tone.start();
+                        debugLog('Tone.js audio context started successfully');
+                        document.removeEventListener('click', startAudio);
+                    } else {
+                        debugLog('ERROR: Tone.js not loaded!');
+                    }
+                } catch (e) {
+                    debugLog('ERROR starting audio context: ' + e.message);
+                }
+            };
+            document.addEventListener('click', startAudio);
+            
+            // Hide loading indicator
+            setTimeout(function() {
+                const loadingIndicator = document.getElementById('loading-indicator');
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                    debugLog('Loading indicator hidden');
+                }
+            }, 1000);
+            
+            debugLog('Initialization complete');
+        });
+    </script>
+
+    <!-- Modern module script (will be used when fully migrated) -->
+    <script type="module">
+        // Just log that modules are loading to see if there are errors
+        console.log('ES modules loading...');
+        
+        try {
+            // This will be replaced with actual module imports later
+            debugLog('Module script executing');
+        } catch (e) {
+            console.error('Error in module script:', e);
+            debugLog('ERROR in module script: ' + e.message);
+        }
+    </script>
     
-<!-- Запасной вариант для браузеров, не поддерживающих ES модули -->
-<script nomodule>
-    alert('Ваш браузер не поддерживает ES модули. Пожалуйста, используйте современный браузер.');
-</script>
+    <!-- Fallback for browsers that don't support ES modules -->
+    <script nomodule>
+        console.warn('Your browser does not support ES modules. Some features may not work.');
+        debugLog('WARNING: Browser does not support ES modules');
+    </script>
 </body>
 </html>

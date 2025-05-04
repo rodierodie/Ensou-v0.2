@@ -1,312 +1,273 @@
 /**
  * modernChordSelector.js
- * Модернизированный компонент для отображения и выбора аккордов в тональности
+ * Component for displaying and selecting chords in the current tonality
  */
 
-import Component from '../component.js';
+import Component from '../../components/component.js';
 import store from '../../core/store.js';
 import eventBus from '../../core/eventBus.js';
 import audioService from '../../services/audioService.js';
 import { tonalityCollection } from '../../models/tonality.js';
 import { chordCollection } from '../../models/chord.js';
-import chordSuggestions from './chordSuggestions.js';
 
+// Debug helper
+function debug(message) {
+    console.log(`[CHORD_SELECTOR] ${message}`);
+    if (window.debugLog) {
+        window.debugLog(message);
+    }
+}
+
+/**
+ * ModernChordSelector component for displaying and selecting chords
+ */
 class ModernChordSelector extends Component {
-  /**
-   * Создает компонент выбора аккордов
-   * @param {HTMLElement} basicChordsContainer - Контейнер для основных аккордов
-   * @param {HTMLElement} seventhChordsContainer - Контейнер для септаккордов
-   * @param {Object} options - Настройки компонента
-   */
-  constructor(basicChordsContainer, seventhChordsContainer, options = {}) {
-    // Сохраняем ссылки на контейнеры
-    this.containers = {
-      basic: basicChordsContainer,
-      seventh: seventhChordsContainer
-    };
-    
-    // Вызываем конструктор базового класса с первым контейнером
-    super(basicChordsContainer, {
-      ...options,
-      autoRender: false
-    });
-    
-    // Инициализируем состояние
-    this.currentTonality = store.getCurrentTonality();
-    this.currentChord = store.getCurrentChord();
-    this.suggestions = [];
-    
-    // Подписываемся на изменения в store
-    this.subscribeToStore(this.handleStateChange, ['currentTonality', 'currentChord', 'sequence']);
-    
-    // Подписываемся на события
-    this.subscribeToEvent('chordSuggestionsUpdated', this.handleSuggestionsUpdated.bind(this));
-    
-    // Инициализируем UI
-    this.init();
-  }
-  
-  /**
-   * Инициализация компонента
-   */
-  init() {
-    console.log('Инициализация компонента выбора аккордов');
-    
-    // Получаем начальные данные
-    this.updateChordButtons();
-    
-    // Публикуем событие инициализации
-    eventBus.publish('chordSelectorInitialized', {
-      tonality: this.currentTonality
-    });
-  }
-  
-  /**
-   * Рендеринг компонента не используется напрямую,
-   * вместо этого используется updateChordButtons для каждого контейнера
-   */
-  render() {
-    this.updateChordButtons();
-  }
-  
-  /**
-   * Обновление кнопок аккордов на основе текущей тональности
-   */
-  updateChordButtons() {
-    // Получаем данные о тональности
-    const tonality = tonalityCollection.getTonality(this.currentTonality);
-    
-    if (!tonality) {
-      console.error(`Тональность ${this.currentTonality} не найдена`);
-      return;
-    }
-    
-    // Обновляем основные аккорды
-    this.updateChordSection(
-      this.containers.basic,
-      tonality.chords.basic,
-      'basic'
-    );
-    
-    // Обновляем септаккорды
-    this.updateChordSection(
-      this.containers.seventh,
-      tonality.chords.seventh,
-      'seventh'
-    );
-    
-    // Обновляем подсветку аккорда
-    this.updateActiveChord();
-    
-    // Обновляем подсветку предложений
-    this.highlightSuggestions();
-  }
-  
-  /**
-   * Обновление секции аккордов (основные или септаккорды)
-   * @param {HTMLElement} container - Контейнер для аккордов
-   * @param {Array} chords - Массив аккордов
-   * @param {string} type - Тип аккордов ('basic' или 'seventh')
-   */
-  updateChordSection(container, chords, type) {
-    if (!container) return;
-    
-    // Очищаем контейнер
-    container.innerHTML = '';
-    
-    // Создаем кнопки для каждого аккорда
-    chords.forEach(chordName => {
-      const button = document.createElement('div');
-      button.className = 'chord-button';
-      button.dataset.chord = chordName;
-      button.textContent = chordName;
-      
-      // Устанавливаем активный класс, если это текущий аккорд
-      if (chordName === this.currentChord) {
-        button.classList.add('active');
-      }
-      
-      // Добавляем обработчик клика
-      button.addEventListener('click', () => {
-        this.handleChordClick(chordName);
-      });
-      
-      container.appendChild(button);
-    });
-  }
-  
-  /**
-   * Обработка клика по аккорду
-   * @param {string} chordName - Название аккорда
-   */
-  handleChordClick(chordName) {
-    // Устанавливаем текущий аккорд
-    store.setCurrentChord(chordName);
-    
-    // Проигрываем аккорд
-    audioService.playChord(chordName);
-    
-    // Публикуем событие выбора аккорда
-    eventBus.publish('chordSelected', {
-      chordName: chordName,
-      tonality: this.currentTonality
-    });
-  }
-  
-  /**
-   * Обновление активного аккорда
-   */
-  updateActiveChord() {
-    // Удаляем класс active у всех кнопок
-    document.querySelectorAll('.chord-button').forEach(button => {
-      button.classList.remove('active');
-    });
-    
-    // Добавляем класс active текущему аккорду
-    document.querySelectorAll(`.chord-button[data-chord="${this.currentChord}"]`).forEach(button => {
-      button.classList.add('active');
-    });
-  }
-  
-  /**
-   * Подсветка предлагаемых аккордов
-   */
-  highlightSuggestions() {
-    // Сначала очищаем все подсветки
-    document.querySelectorAll('.chord-button').forEach(button => {
-      button.classList.remove('suggested-high', 'suggested-medium', 'suggested-low');
-      
-      // Удаляем иконку функции, если есть
-      const icon = button.querySelector('.suggestion-function-icon');
-      if (icon) {
-        icon.remove();
-      }
-      
-      // Очищаем всплывающую подсказку
-      button.title = '';
-    });
-    
-    // Подсвечиваем предложения
-    this.suggestions.forEach(suggestion => {
-      // Находим все кнопки для этого аккорда
-      const buttons = document.querySelectorAll(`.chord-button[data-chord="${suggestion.name}"]`);
-      
-      // Определяем класс подсветки в зависимости от уверенности
-      let highlightClass = '';
-      if (suggestion.confidence > 0.5) {
-        highlightClass = 'suggested-high';
-      } else if (suggestion.confidence > 0.3) {
-        highlightClass = 'suggested-medium';
-      } else {
-        highlightClass = 'suggested-low';
-      }
-      
-      // Применяем подсветку
-      buttons.forEach(button => {
-        button.classList.add(highlightClass);
+    /**
+     * Create a new ModernChordSelector
+     * @param {HTMLElement} basicChordsContainer - Container for basic chords
+     * @param {HTMLElement} seventhChordsContainer - Container for seventh chords
+     * @param {Object} options - Component options
+     */
+    constructor(basicChordsContainer, seventhChordsContainer, options = {}) {
+        // Set containers
+        const containers = {
+            basic: basicChordsContainer,
+            seventh: seventhChordsContainer
+        };
         
-        // Добавляем иконку функции
-        this.addFunctionIcon(button, suggestion.function);
+        // Call parent constructor with first container
+        super(basicChordsContainer, {
+            ...options,
+            autoRender: false // Disable auto render
+        });
         
-        // Добавляем всплывающую подсказку
-        button.title = `${suggestion.name}: ${this.getFunctionDisplayName(suggestion.function)}`;
-      });
-    });
-  }
-  
-  /**
-   * Добавление иконки функции к кнопке аккорда
-   * @param {HTMLElement} button - Кнопка аккорда
-   * @param {string} functionName - Название функции
-   */
-  addFunctionIcon(button, functionName) {
-    // Удаляем предыдущую иконку, если есть
-    const existingIcon = button.querySelector('.suggestion-function-icon');
-    if (existingIcon) {
-      existingIcon.remove();
+        // Store both containers
+        this.containers = containers;
+        
+        // Store state
+        this.currentTonality = store.getCurrentTonality();
+        this.currentChord = store.getCurrentChord();
+        this.suggestionLevel = { // For chord suggestions (will be implemented later)
+            high: [],
+            medium: [],
+            low: []
+        };
+        
+        debug('ModernChordSelector created');
+        
+        // Subscribe to store changes
+        this.subscribeToStore(this.handleStateChange, ['currentTonality', 'currentChord']);
+        
+        // Initialize component
+        this.init();
     }
     
-    // Создаем иконку
-    const functionIcon = document.createElement('span');
-    functionIcon.className = `function-icon ${this.getFunctionClass(functionName)} suggestion-function-icon`;
-    functionIcon.textContent = this.getFunctionIconLabel(functionName);
-    button.appendChild(functionIcon);
-  }
-  
-  /**
-   * Получение CSS класса для функции
-   * @param {string} functionName - Название функции
-   * @returns {string} CSS класс
-   */
-  getFunctionClass(functionName) {
-    switch (functionName) {
-      case 'tonic': return 'tonic';
-      case 'dominant': return 'dominant';
-      case 'subdominant': return 'subdominant';
-      default: return '';
+    /**
+     * Initialize component
+     */
+    init() {
+        debug('Initializing ModernChordSelector');
+        
+        // Load chord data
+        this.loadChordData();
+        
+        // Render component
+        this.render();
+        
+        debug('ModernChordSelector initialized');
     }
-  }
-  
-  /**
-   * Получение метки для иконки функции
-   * @param {string} functionName - Название функции
-   * @returns {string} Метка для иконки
-   */
-  getFunctionIconLabel(functionName) {
-    switch (functionName) {
-      case 'tonic': return 'T';
-      case 'dominant': return 'D';
-      case 'subdominant': return 'S';
-      default: return '?';
+    
+    /**
+     * Load chord data for current tonality
+     */
+    loadChordData() {
+        // Get tonality data
+        const tonality = tonalityCollection.getTonality(this.currentTonality);
+        
+        if (!tonality) {
+            debug(`ERROR: Tonality ${this.currentTonality} not found`);
+            return;
+        }
+        
+        // Store chord data
+        this.basicChords = tonality.chords.basic || [];
+        this.seventhChords = tonality.chords.seventh || [];
+        
+        debug(`Loaded chords for tonality ${this.currentTonality}`);
     }
-  }
-  
-  /**
-   * Получение отображаемого имени функции
-   * @param {string} functionName - Название функции
-   * @returns {string} Отображаемое имя
-   */
-  getFunctionDisplayName(functionName) {
-    switch (functionName) {
-      case 'tonic': return 'Тоника';
-      case 'dominant': return 'Доминанта';
-      case 'subdominant': return 'Субдоминанта';
-      default: return functionName;
+    
+    /**
+     * Render component
+     */
+    render() {
+        // Render basic chords
+        this.renderChordSection(this.containers.basic, this.basicChords, 'basic');
+        
+        // Render seventh chords
+        this.renderChordSection(this.containers.seventh, this.seventhChords, 'seventh');
+        
+        // Highlight current chord
+        this.highlightCurrentChord();
+        
+        // Highlight suggested chords (if any)
+        this.highlightSuggestedChords();
     }
-  }
-  
-  /**
-   * Обработка обновления предложений аккордов
-   * @param {Object} data - Данные события
-   */
-  handleSuggestionsUpdated(data) {
-    this.suggestions = data.suggestions || [];
-    this.highlightSuggestions();
-  }
-  
-  /**
-   * Обработка изменений в store
-   * @param {Object} state - Состояние store
-   * @param {string} changedProp - Измененное свойство
-   */
-  handleStateChange(state, changedProp) {
-    if (changedProp === 'currentTonality') {
-      // Обновляем текущую тональность
-      this.currentTonality = state.currentTonality;
-      
-      // Обновляем аккорды для новой тональности
-      this.updateChordButtons();
-    } else if (changedProp === 'currentChord') {
-      // Обновляем текущий аккорд
-      this.currentChord = state.currentChord;
-      
-      // Обновляем активный аккорд
-      this.updateActiveChord();
-    } else if (changedProp === 'sequence') {
-      // При изменении последовательности могут измениться предложения,
-      // но они обрабатываются через событие chordSuggestionsUpdated
+    
+    /**
+     * Render a chord section (basic or seventh)
+     * @param {HTMLElement} container - Container element
+     * @param {string[]} chords - Chord names
+     * @param {string} type - Section type ('basic' or 'seventh')
+     */
+    renderChordSection(container, chords, type) {
+        // Skip if container doesn't exist
+        if (!container) return;
+        
+        // Clear container
+        container.innerHTML = '';
+        
+        // Create chord buttons
+        chords.forEach(chordName => {
+            // Skip invalid chords
+            if (!chordName || chordName === 'undefined') return;
+            
+            // Create button element
+            const button = document.createElement('div');
+            button.className = 'chord-button';
+            button.dataset.chord = chordName;
+            button.dataset.type = type;
+            button.textContent = chordName;
+            
+            // Add click handler
+            button.addEventListener('click', () => this.handleChordClick(chordName));
+            
+            // Add to container
+            container.appendChild(button);
+        });
     }
-  }
+    
+    /**
+     * Handle chord button click
+     * @param {string} chordName - Chord name
+     */
+    handleChordClick(chordName) {
+        debug(`Chord clicked: ${chordName}`);
+        
+        // Set current chord in store
+        store.setCurrentChord(chordName);
+        
+        // Play chord
+        audioService.playChord(chordName);
+        
+        // Publish event
+        eventBus.publish('chordSelected', {
+            name: chordName,
+            tonality: this.currentTonality
+        });
+    }
+    
+    /**
+     * Highlight current chord
+     */
+    highlightCurrentChord() {
+        // Remove active class from all chord buttons
+        document.querySelectorAll('.chord-button').forEach(button => {
+            button.classList.remove('active');
+        });
+        
+        // Add active class to current chord buttons
+        document.querySelectorAll(`.chord-button[data-chord="${this.currentChord}"]`).forEach(button => {
+            button.classList.add('active');
+        });
+    }
+    
+    /**
+     * Highlight suggested chords
+     */
+    highlightSuggestedChords() {
+        // Remove all suggestion classes
+        document.querySelectorAll('.chord-button').forEach(button => {
+            button.classList.remove('suggested-high', 'suggested-medium', 'suggested-low');
+            
+            // Remove function icon if exists
+            const icon = button.querySelector('.suggestion-function-icon');
+            if (icon) icon.remove();
+        });
+        
+        // Add high suggestions
+        this.suggestionLevel.high.forEach(chordName => {
+            document.querySelectorAll(`.chord-button[data-chord="${chordName}"]`).forEach(button => {
+                button.classList.add('suggested-high');
+            });
+        });
+        
+        // Add medium suggestions
+        this.suggestionLevel.medium.forEach(chordName => {
+            document.querySelectorAll(`.chord-button[data-chord="${chordName}"]`).forEach(button => {
+                button.classList.add('suggested-medium');
+            });
+        });
+        
+        // Add low suggestions
+        this.suggestionLevel.low.forEach(chordName => {
+            document.querySelectorAll(`.chord-button[data-chord="${chordName}"]`).forEach(button => {
+                button.classList.add('suggested-low');
+            });
+        });
+    }
+    
+    /**
+     * Update suggestions
+     * @param {Array} suggestions - Suggested chords with confidence levels
+     */
+    updateSuggestions(suggestions) {
+        // Reset suggestions
+        this.suggestionLevel = {
+            high: [],
+            medium: [],
+            low: []
+        };
+        
+        // Process suggestions
+        suggestions.forEach(suggestion => {
+            if (suggestion.confidence > 0.6) {
+                this.suggestionLevel.high.push(suggestion.name);
+            } else if (suggestion.confidence > 0.3) {
+                this.suggestionLevel.medium.push(suggestion.name);
+            } else {
+                this.suggestionLevel.low.push(suggestion.name);
+            }
+        });
+        
+        // Update highlighting
+        this.highlightSuggestedChords();
+    }
+    
+    /**
+     * Handle state changes
+     * @param {Object} state - Current state
+     * @param {string} changedProp - Changed property
+     */
+    handleStateChange(state, changedProp) {
+        debug(`State changed: ${changedProp}`);
+        
+        if (changedProp === 'currentTonality') {
+            // Update tonality
+            this.currentTonality = state.currentTonality;
+            
+            // Reload chord data
+            this.loadChordData();
+            
+            // Re-render component
+            this.render();
+        } else if (changedProp === 'currentChord') {
+            // Update chord
+            this.currentChord = state.currentChord;
+            
+            // Update highlighting
+            this.highlightCurrentChord();
+        }
+    }
 }
 
 export default ModernChordSelector;

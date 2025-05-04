@@ -1,329 +1,385 @@
 /**
  * modernSequencer.js
- * Модернизированный компонент для управления секвенсором аккордовых прогрессий
+ * Component for managing and displaying chord sequences
  */
 
-import Component from '../component.js';
+import Component from '../../components/component.js';
 import store from '../../core/store.js';
 import eventBus from '../../core/eventBus.js';
 import audioService from '../../services/audioService.js';
 
+// Debug helper
+function debug(message) {
+    console.log(`[SEQUENCER] ${message}`);
+    if (window.debugLog) {
+        window.debugLog(message);
+    }
+}
+
+/**
+ * ModernSequencer component for managing chord sequences
+ */
 class ModernSequencer extends Component {
-  /**
-   * Создает компонент секвенсора
-   * @param {HTMLElement} container - Контейнер для элементов управления
-   * @param {HTMLElement} sequenceContainer - Контейнер для отображения последовательности
-   * @param {Object} options - Настройки компонента
-   */
-  constructor(container, sequenceContainer, options = {}) {
-    super(container, {
-      ...options,
-      autoRender: true
-    });
-    
-    // Сохраняем ссылку на контейнер последовательности
-    this.sequenceContainer = sequenceContainer;
-    
-    // Инициализируем состояние
-    this.sequence = store.getSequence();
-    this.isPlaying = store.getIsPlaying();
-    this.currentIndex = -1;
-    this.tempo = store.getTempo();
-    
-    // Подписываемся на изменения в store
-    this.subscribeToStore(this.handleStateChange, ['sequence', 'isPlaying', 'tempo']);
-    
-    // Подписываемся на события
-    this.subscribeToEvent('chordPlaying', this.handleChordPlaying.bind(this));
-  }
-  
-  /**
-   * Рендеринг компонента элементов управления
-   */
-  render() {
-    if (!this.container) return;
-    
-    this.clearContainer();
-    
-    // Создаем контейнер для элементов управления
-    const controlsContainer = this.createElement('div', {
-      className: 'sequence-controls'
-    });
-    
-    // Создаем основные элементы управления
-    const mainControls = this.createElement('div', {
-      className: 'main-sequence-controls'
-    });
-    
-    // Кнопка воспроизведения
-    const playButton = this.createElement('button', {
-      id: 'play-sequence',
-      className: 'play-button',
-      textContent: '▶ Проиграть',
-      disabled: this.isPlaying || this.sequence.length === 0,
-      onClick: this.handlePlayClick.bind(this)
-    });
-    mainControls.appendChild(playButton);
-    
-    // Кнопка остановки
-    const stopButton = this.createElement('button', {
-      id: 'stop-sequence',
-      className: 'stop-button',
-      textContent: '■ Стоп',
-      disabled: !this.isPlaying,
-      onClick: this.handleStopClick.bind(this)
-    });
-    mainControls.appendChild(stopButton);
-    
-    // Добавляем основные элементы управления
-    controlsContainer.appendChild(mainControls);
-    
-    // Создаем элементы редактирования
-    const editControls = this.createElement('div', {
-      className: 'edit-sequence-controls'
-    });
-    
-    // Кнопка добавления паузы
-    const addPauseButton = this.createElement('button', {
-      id: 'add-pause',
-      className: 'add-pause-button',
-      textContent: '+ Пауза',
-      onClick: this.handleAddPauseClick.bind(this)
-    });
-    editControls.appendChild(addPauseButton);
-    
-    // Кнопка очистки последовательности
-    const clearButton = this.createElement('button', {
-      id: 'clear-sequence',
-      className: 'clear-button',
-      textContent: 'Очистить',
-      disabled: this.sequence.length === 0,
-      onClick: this.handleClearClick.bind(this)
-    });
-    editControls.appendChild(clearButton);
-    
-    // Добавляем элементы редактирования
-    controlsContainer.appendChild(editControls);
-    
-    // Добавляем контейнер в основной контейнер
-    this.container.appendChild(controlsContainer);
-    
-    // Рендерим последовательность
-    this.renderSequence();
-  }
-  
-  /**
-   * Рендеринг последовательности аккордов
-   */
-  renderSequence() {
-    if (!this.sequenceContainer) return;
-    
-    // Очищаем контейнер
-    this.sequenceContainer.innerHTML = '';
-    
-    // Если последовательность пуста, показываем заглушку
-    if (this.sequence.length === 0) {
-      const placeholder = this.createElement('div', {
-        className: 'timeline-placeholder',
-        textContent: 'Добавьте аккорды в последовательность'
-      });
-      this.sequenceContainer.appendChild(placeholder);
-      return;
-    }
-    
-    // Создаем элементы для каждого аккорда в последовательности
-    this.sequence.forEach((chordName, index) => {
-      const slotElement = this.createElement('div', {
-        className: 'sequence-slot',
-        dataset: { index: index }
-      });
-      
-      // Если это текущий проигрываемый аккорд, добавляем соответствующий класс
-      if (index === this.currentIndex && this.isPlaying) {
-        slotElement.classList.add('current-playing');
-      }
-      
-      // Название аккорда
-      const chordNameElement = this.createElement('div', {
-        className: 'slot-chord'
-      });
-      
-      // Если это пауза, отображаем соответствующий символ
-      if (chordName === 'PAUSE') {
-        chordNameElement.textContent = '𝄽'; // Символ паузы
-        chordNameElement.classList.add('pause-symbol');
-      } else if (chordName === 'BLOCK_DIVIDER') {
-        chordNameElement.textContent = '|'; // Символ разделителя блоков
-        chordNameElement.classList.add('block-divider-symbol');
-      } else {
-        chordNameElement.textContent = chordName;
-      }
-      
-      slotElement.appendChild(chordNameElement);
-      
-      // Добавляем обработчик клика
-      slotElement.addEventListener('click', () => {
-        this.handleSlotClick(chordName, index);
-      });
-      
-      // Кнопка удаления
-      const removeButton = this.createElement('div', {
-        className: 'slot-remove',
-        textContent: '×',
-        onClick: (e) => {
-          e.stopPropagation(); // Предотвращаем проигрывание аккорда при клике на кнопку удаления
-          this.handleRemoveClick(index);
-        }
-      });
-      slotElement.appendChild(removeButton);
-      
-      // Добавляем слот в контейнер
-      this.sequenceContainer.appendChild(slotElement);
-    });
-  }
-  
-  /**
-   * Обработка нажатия на кнопку воспроизведения
-   */
-  handlePlayClick() {
-    store.setIsPlaying(true);
-  }
-  
-  /**
-   * Обработка нажатия на кнопку остановки
-   */
-  handleStopClick() {
-    store.setIsPlaying(false);
-  }
-  
-  /**
-   * Обработка нажатия на кнопку добавления паузы
-   */
-  handleAddPauseClick() {
-    store.addChordToSequence('PAUSE');
-  }
-  
-  /**
-   * Обработка нажатия на кнопку очистки последовательности
-   */
-  handleClearClick() {
-    // Запрашиваем подтверждение
-    if (confirm('Вы уверены, что хотите очистить текущую последовательность?')) {
-      store.clearSequence();
-    }
-  }
-  
-  /**
-   * Обработка клика по слоту последовательности
-   * @param {string} chordName - Название аккорда
-   * @param {number} index - Индекс в последовательности
-   */
-  handleSlotClick(chordName, index) {
-    // Пропускаем для пауз и разделителей блоков
-    if (chordName === 'PAUSE' || chordName === 'BLOCK_DIVIDER') {
-      return;
-    }
-    
-    // Устанавливаем текущий аккорд
-    store.setCurrentChord(chordName);
-    
-    // Проигрываем аккорд
-    audioService.playChord(chordName);
-    
-    // Публикуем событие
-    eventBus.publish('sequenceChordClicked', {
-      chordName,
-      index
-    });
-  }
-  
-  /**
-   * Обработка нажатия на кнопку удаления аккорда
-   * @param {number} index - Индекс аккорда в последовательности
-   */
-  handleRemoveClick(index) {
-    store.removeChordFromSequence(index);
-  }
-  
-  /**
-   * Обработка события проигрывания аккорда
-   * @param {Object} data - Данные события
-   */
-  handleChordPlaying(data) {
-    this.currentIndex = data.index;
-    this.updateCurrentPlaying();
-  }
-  
-  /**
-   * Обновление подсветки текущего проигрываемого аккорда
-   */
-  updateCurrentPlaying() {
-    // Удаляем класс у всех слотов
-    document.querySelectorAll('.sequence-slot').forEach(slot => {
-      slot.classList.remove('current-playing');
-    });
-    
-    // Если есть текущий индекс и воспроизведение активно
-    if (this.currentIndex >= 0 && this.isPlaying) {
-      // Находим слот с текущим индексом
-      const currentSlot = document.querySelector(`.sequence-slot[data-index="${this.currentIndex}"]`);
-      if (currentSlot) {
-        currentSlot.classList.add('current-playing');
+    /**
+     * Create a new ModernSequencer
+     * @param {HTMLElement} controlsContainer - Container for sequence controls
+     * @param {HTMLElement} sequenceContainer - Container for sequence display
+     * @param {Object} options - Component options
+     */
+    constructor(controlsContainer, sequenceContainer, options = {}) {
+        // Call parent constructor with controls container
+        super(controlsContainer, {
+            ...options,
+            autoRender: false // Disable auto render
+        });
         
-        // Прокручиваем, чтобы слот был видимым
-        this.scrollToCurrentSlot();
-      }
-    }
-  }
-  
-  /**
-   * Прокрутка к текущему проигрываемому слоту
-   */
-  scrollToCurrentSlot() {
-    const currentSlot = document.querySelector('.sequence-slot.current-playing');
-    if (!currentSlot || !this.sequenceContainer) return;
-    
-    // Проверяем, виден ли слот
-    const containerRect = this.sequenceContainer.getBoundingClientRect();
-    const slotRect = currentSlot.getBoundingClientRect();
-    
-    // Если слот выходит за пределы видимой области, прокручиваем
-    if (slotRect.left < containerRect.left || slotRect.right > containerRect.right) {
-      // Вычисляем позицию прокрутки
-      const scrollLeft = currentSlot.offsetLeft - this.sequenceContainer.offsetWidth / 2 + currentSlot.offsetWidth / 2;
-      this.sequenceContainer.scrollLeft = scrollLeft;
-    }
-  }
-  
-  /**
-   * Обработка изменений в store
-   * @param {Object} state - Состояние store
-   * @param {string} changedProp - Измененное свойство
-   */
-  handleStateChange(state, changedProp) {
-    let shouldRender = false;
-    
-    if (changedProp === 'sequence') {
-      this.sequence = state.sequence;
-      shouldRender = true;
-    } else if (changedProp === 'isPlaying') {
-      this.isPlaying = state.isPlaying;
-      
-      // Если воспроизведение остановлено, сбрасываем текущий индекс
-      if (!this.isPlaying) {
-        this.currentIndex = -1;
-      }
-      
-      shouldRender = true;
-    } else if (changedProp === 'tempo') {
-      this.tempo = state.tempo;
+        // Store sequence container
+        this.sequenceContainer = sequenceContainer;
+        
+        // Store state
+        this.sequence = store.getSequence();
+        this.isPlaying = store.getIsPlaying();
+        this.currentPlayingIndex = -1;
+        this.tempo = store.getTempo();
+        
+        debug('ModernSequencer created');
+        
+        // Subscribe to store changes
+        this.subscribeToStore(this.handleStateChange, ['sequence', 'isPlaying', 'tempo']);
+        
+        // Subscribe to events
+        this.subscribeToEvent('chordPlaying', this.handleChordPlaying.bind(this));
+        
+        // Initialize component
+        this.init();
     }
     
-    // Перерисовываем компонент, если нужно
-    if (shouldRender) {
-      this.render();
+    /**
+     * Initialize component
+     */
+    init() {
+        debug('Initializing ModernSequencer');
+        
+        // Render component
+        this.render();
+        
+        // Render sequence
+        this.renderSequence();
+        
+        debug('ModernSequencer initialized');
     }
-  }
+    
+    /**
+     * Render component (controls)
+     */
+    render() {
+        if (!this.container) return;
+        
+        // Clear container
+        this.clearContainer();
+        
+        // Create main controls container
+        const mainControls = document.createElement('div');
+        mainControls.className = 'main-sequence-controls';
+        
+        // Create play button
+        const playButton = document.createElement('button');
+        playButton.id = 'play-sequence';
+        playButton.className = 'play-button';
+        playButton.textContent = '▶ Проиграть';
+        playButton.disabled = this.isPlaying || this.sequence.length === 0;
+        playButton.addEventListener('click', () => this.handlePlayClick());
+        mainControls.appendChild(playButton);
+        
+        // Create stop button
+        const stopButton = document.createElement('button');
+        stopButton.id = 'stop-sequence';
+        stopButton.className = 'stop-button';
+        stopButton.textContent = '■ Стоп';
+        stopButton.disabled = !this.isPlaying;
+        stopButton.addEventListener('click', () => this.handleStopClick());
+        mainControls.appendChild(stopButton);
+        
+        // Add main controls to container
+        this.container.appendChild(mainControls);
+        
+        // Create edit controls container
+        const editControls = document.createElement('div');
+        editControls.className = 'edit-sequence-controls';
+        
+        // Create add pause button
+        const addPauseButton = document.createElement('button');
+        addPauseButton.id = 'add-pause';
+        addPauseButton.className = 'add-pause-button';
+        addPauseButton.textContent = '+ Пауза';
+        addPauseButton.addEventListener('click', () => this.handleAddPauseClick());
+        editControls.appendChild(addPauseButton);
+        
+        // Create clear button
+        const clearButton = document.createElement('button');
+        clearButton.id = 'clear-sequence';
+        clearButton.className = 'clear-button';
+        clearButton.textContent = 'Очистить';
+        clearButton.disabled = this.sequence.length === 0;
+        clearButton.addEventListener('click', () => this.handleClearClick());
+        editControls.appendChild(clearButton);
+        
+        // Add edit controls to container
+        this.container.appendChild(editControls);
+    }
+    
+    /**
+     * Render sequence
+     */
+    renderSequence() {
+        if (!this.sequenceContainer) return;
+        
+        // Clear container
+        this.sequenceContainer.innerHTML = '';
+        
+        // If sequence is empty, show placeholder
+        if (this.sequence.length === 0) {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'timeline-placeholder';
+            placeholder.textContent = 'Добавьте аккорды в последовательность';
+            this.sequenceContainer.appendChild(placeholder);
+            return;
+        }
+        
+        // Create card for each chord in sequence
+        this.sequence.forEach((chordName, index) => {
+            const card = this.createSequenceCard(chordName, index);
+            this.sequenceContainer.appendChild(card);
+        });
+        
+        // Scroll to current chord if playing
+        if (this.currentPlayingIndex >= 0 && this.isPlaying) {
+            this.scrollToCurrentChord();
+        }
+    }
+    
+    /**
+     * Create a sequence card for a chord
+     * @param {string} chordName - Chord name
+     * @param {number} index - Chord index in sequence
+     * @returns {HTMLElement} Sequence card element
+     */
+    createSequenceCard(chordName, index) {
+        // Create card element
+        const card = document.createElement('div');
+        card.className = 'sequence-card';
+        card.dataset.index = index;
+        
+        // Add current-playing class if this is currently playing chord
+        if (index === this.currentPlayingIndex && this.isPlaying) {
+            card.classList.add('current-playing');
+        }
+        
+        // Create chord name element
+        const nameElement = document.createElement('div');
+        nameElement.className = 'chord-name';
+        
+        if (chordName === 'PAUSE') {
+            // Show pause symbol
+            nameElement.textContent = '𝄽';
+            nameElement.classList.add('pause-symbol');
+        } else if (chordName === 'BLOCK_DIVIDER') {
+            // Show block divider symbol
+            nameElement.textContent = '|';
+            nameElement.classList.add('block-divider-symbol');
+        } else {
+            // Show chord name
+            nameElement.textContent = chordName;
+        }
+        
+        card.appendChild(nameElement);
+        
+        // Create remove button
+        const removeButton = document.createElement('div');
+        removeButton.className = 'card-remove';
+        removeButton.textContent = '×';
+        removeButton.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent card click
+            this.handleRemoveChord(index);
+        });
+        
+        card.appendChild(removeButton);
+        
+        // Add click handler for card
+        card.addEventListener('click', () => {
+            this.handleChordCardClick(chordName, index);
+        });
+        
+        return card;
+    }
+    
+    /**
+     * Handle play button click
+     */
+    handlePlayClick() {
+        debug('Play button clicked');
+        store.setIsPlaying(true);
+    }
+    
+    /**
+     * Handle stop button click
+     */
+    handleStopClick() {
+        debug('Stop button clicked');
+        store.setIsPlaying(false);
+    }
+    
+    /**
+     * Handle add pause button click
+     */
+    handleAddPauseClick() {
+        debug('Add pause button clicked');
+        store.addChordToSequence('PAUSE');
+    }
+    
+    /**
+     * Handle clear button click
+     */
+    handleClearClick() {
+        debug('Clear button clicked');
+        
+        // Ask for confirmation
+        if (confirm('Вы уверены, что хотите очистить текущую последовательность?')) {
+            store.clearSequence();
+        }
+    }
+    
+    /**
+     * Handle chord card click
+     * @param {string} chordName - Chord name
+     * @param {number} index - Chord index
+     */
+    handleChordCardClick(chordName, index) {
+        // Skip for pauses and block dividers
+        if (chordName === 'PAUSE' || chordName === 'BLOCK_DIVIDER') {
+            return;
+        }
+        
+        debug(`Chord card clicked: ${chordName}`);
+        
+        // Set as current chord
+        store.setCurrentChord(chordName);
+        
+        // Play chord
+        audioService.playChord(chordName);
+        
+        // Publish event
+        eventBus.publish('sequenceChordClicked', {
+            name: chordName,
+            index: index
+        });
+    }
+    
+    /**
+     * Handle remove chord
+     * @param {number} index - Chord index
+     */
+    handleRemoveChord(index) {
+        debug(`Remove chord at index ${index}`);
+        store.removeChordFromSequence(index);
+    }
+    
+    /**
+     * Handle chord playing event
+     * @param {Object} data - Event data
+     */
+    handleChordPlaying(data) {
+        debug(`Chord playing: ${data.chordName} at index ${data.index}`);
+        
+        // Update current playing index
+        this.currentPlayingIndex = data.index;
+        
+        // Update UI
+        this.updatePlayingHighlight();
+    }
+    
+    /**
+     * Update playing highlight
+     */
+    updatePlayingHighlight() {
+        // Remove highlight from all cards
+        const cards = this.sequenceContainer.querySelectorAll('.sequence-card');
+        cards.forEach(card => {
+            card.classList.remove('current-playing');
+        });
+        
+        // Add highlight to current card
+        if (this.currentPlayingIndex >= 0 && this.isPlaying) {
+            const currentCard = this.sequenceContainer.querySelector(`.sequence-card[data-index="${this.currentPlayingIndex}"]`);
+            if (currentCard) {
+                currentCard.classList.add('current-playing');
+                
+                // Scroll to make current card visible
+                this.scrollToCurrentChord();
+            }
+        }
+    }
+    
+    /**
+     * Scroll to current chord
+     */
+    scrollToCurrentChord() {
+        // Find current card
+        const currentCard = this.sequenceContainer.querySelector('.sequence-card.current-playing');
+        if (!currentCard) return;
+        
+        // Calculate if card is visible in container
+        const containerRect = this.sequenceContainer.getBoundingClientRect();
+        const cardRect = currentCard.getBoundingClientRect();
+        
+        // Scroll if card is outside visible area
+        if (cardRect.left < containerRect.left || cardRect.right > containerRect.right) {
+            // Calculate scroll position to center card
+            const scrollLeft = (
+                currentCard.offsetLeft - 
+                this.sequenceContainer.clientWidth / 2 + 
+                currentCard.clientWidth / 2
+            );
+            
+            // Scroll container
+            this.sequenceContainer.scrollLeft = scrollLeft;
+        }
+    }
+    
+    /**
+     * Handle state changes
+     * @param {Object} state - Current state
+     * @param {string} changedProp - Changed property
+     */
+    handleStateChange(state, changedProp) {
+        debug(`State changed: ${changedProp}`);
+        
+        if (changedProp === 'sequence') {
+            // Update sequence
+            this.sequence = state.sequence;
+            
+            // Re-render sequence
+            this.renderSequence();
+            
+            // Update controls (clear button state)
+            this.render();
+        } else if (changedProp === 'isPlaying') {
+            // Update isPlaying
+            this.isPlaying = state.isPlaying;
+            
+            // If stopped, reset current playing index
+            if (!this.isPlaying) {
+                this.currentPlayingIndex = -1;
+                this.updatePlayingHighlight();
+            }
+            
+            // Update controls (play/stop button state)
+            this.render();
+        } else if (changedProp === 'tempo') {
+            // Update tempo
+            this.tempo = state.tempo;
+        }
+    }
 }
 
 export default ModernSequencer;

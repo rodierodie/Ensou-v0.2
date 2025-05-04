@@ -1,121 +1,174 @@
 /**
  * bridgeAdapter.js
- * Адаптер для обеспечения обратной совместимости между
- * старой глобальной архитектурой и новой модульной системой
+ * Adapter for ensuring backward compatibility between
+ * old global architecture and new modular system
  */
 
 import store from './store.js';
 import eventBus from './eventBus.js';
 import audioService from '../services/audioService.js';
-import chordSuggestions from '../components/chords/chordSuggestions.js';
 import { chordCollection } from '../models/chord.js';
 import { tonalityCollection } from '../models/tonality.js';
-import trackStructureService from '../models/trackStructure.js';
 
 /**
- * Инициализация мостового адаптера
- * Создает глобальные объекты, совместимые со старой архитектурой
+ * Initialize bridge adapter and create global proxies
  */
 export function initializeBridgeAdapter() {
-  console.log('Инициализация мостового адаптера...');
+  console.log('Initializing bridge adapter...');
   
-  // Создаем мостовой объект для UI
-  window.UI = createUIBridge();
+  // Create global proxies for store and services
+  createGlobalProxies();
   
-  // Создаем мостовой объект для Sequencer
-  window.Sequencer = createSequencerBridge();
+  // Create legacy compatibility objects
+  createLegacyObjects();
   
-  // Создаем мостовой объект для Instrument
-  window.Instrument = createInstrumentBridge();
-  
-  // Создаем мостовой объект для ChordSuggestions
-  window.ChordSuggestions = createChordSuggestionsBridge();
-  
-  // Создаем мостовой объект для Arpeggiator
-  window.Arpeggiator = createArpeggiatorBridge();
-  
-  // Создаем мостовой объект для TrackStructure
-  window.TrackStructure = createTrackStructureBridge();
-  
-  console.log('Мостовой адаптер успешно инициализирован');
+  console.log('Bridge adapter initialized');
 }
 
 /**
- * Создание моста для UI
+ * Create global proxies for direct access to core modules
+ */
+export function createGlobalProxies() {
+  if (typeof window === 'undefined') return;
+  
+  // Create proxy for store
+  if (!window.store) {
+    window.store = store;
+  }
+  
+  // Create proxy for eventBus
+  if (!window.eventBus) {
+    window.eventBus = eventBus;
+  }
+  
+  // Create proxy for audioService
+  if (!window.audioService) {
+    window.audioService = audioService;
+  }
+  
+  // Create proxy for chord collection
+  if (!window.chordCollection) {
+    window.chordCollection = chordCollection;
+  }
+  
+  // Create proxy for tonality collection
+  if (!window.tonalityCollection) {
+    window.tonalityCollection = tonalityCollection;
+  }
+  
+  console.log('Global proxies created');
+}
+
+/**
+ * Create legacy compatibility objects for backward compatibility
+ */
+function createLegacyObjects() {
+  // Create old-style UI object if it doesn't exist
+  if (!window.UI) {
+    window.UI = createUIBridge();
+  }
+  
+  // Create old-style Sequencer object
+  if (!window.Sequencer) {
+    window.Sequencer = createSequencerBridge();
+  }
+  
+  // Create old-style Instrument object
+  if (!window.Instrument) {
+    window.Instrument = createInstrumentBridge();
+  }
+  
+  // Create old-style ChordSuggestions object
+  if (!window.ChordSuggestions) {
+    window.ChordSuggestions = createChordSuggestionsBridge();
+  }
+  
+  // Create old-style Arpeggiator object
+  if (!window.Arpeggiator) {
+    window.Arpeggiator = createArpeggiatorBridge();
+  }
+  
+  console.log('Legacy objects created');
+}
+
+/**
+ * Create bridge for UI
+ * @returns {Object} UI bridge object
  */
 function createUIBridge() {
   return {
-    // Геттеры
+    // Getters
     getCurrentChord: () => store.getCurrentChord(),
     getCurrentTonality: () => store.getCurrentTonality(),
     
-    // Сеттеры
+    // Setters
     setCurrentChord: (chord) => store.setCurrentChord(chord),
     changeTonality: (tonality) => store.setCurrentTonality(tonality),
     
-    // Методы для обновления UI компонентов
+    // Methods for updating UI components
     updateChordInfo: (chordName) => {
-      // Публикуем событие для обновления информации об аккорде
+      // Publish event for updating chord info
       eventBus.publish('updateChordInfo', { chordName });
     },
     
-    // Методы для уведомлений
+    // Methods for notifications
     showNotification: (message, type = 'info') => {
-      // Публикуем событие для показа уведомления
+      // Publish event for showing notification
       eventBus.publish('showNotification', { message, type });
     },
     
-    // Флаг для предотвращения циклических обновлений
+    // Flag for preventing cyclic updates
     setInternalTonalityChange: (value) => {
-      // Сохраняем флаг в store
+      // Save flag in store
       store.setState({ internalTonalityChange: value });
     }
   };
 }
 
 /**
- * Создание моста для Sequencer
+ * Create bridge for Sequencer
+ * @returns {Object} Sequencer bridge object
  */
 function createSequencerBridge() {
   return {
-    // Флаги состояния
+    // State flags
     isPlaying: false,
     loopCustomSequence: false,
     
-    // Геттеры
+    // Getters
     getSequence: () => store.getSequence(),
     getTempo: () => store.getTempo(),
     getIsPlaying: () => store.getIsPlaying(),
     
-    // Методы управления секвенсором
+    // Sequencer methods
     addChordToSequence: (chord) => store.addChordToSequence(chord),
     addPauseToSequence: () => store.addChordToSequence('PAUSE'),
     playSequence: () => store.setIsPlaying(true),
     stopSequence: () => store.setIsPlaying(false),
     clearSequence: () => store.clearSequence(),
     
-    // Методы для воспроизведения пользовательской последовательности
+    // Methods for playing custom sequence
     playCustomSequence: (sequence, loop = false) => {
-      // Сохраняем флаг зацикливания
+      // Save loop flag
       window.Sequencer.loopCustomSequence = loop;
       
-      // Воспроизводим последовательность через аудио сервис
+      // Play sequence through audio service
       audioService.playSequence(sequence, loop);
     },
     
-    // Установка последовательности
+    // Set sequence
     setSequence: (sequence) => store.setSequence(sequence),
     
-    // Инициализация секвенсора
+    // Initialize sequencer
     initializeSequencer: () => {
-      // Подписываемся на события изменения состояния
+      // Subscribe to state changes
       store.subscribe((state, changedProp) => {
         if (changedProp === 'isPlaying') {
           window.Sequencer.isPlaying = state.isPlaying;
         }
       });
       
-      // Загружаем сохраненный темп
+      // Load saved tempo
       const tempo = store.getTempo();
       const tempoInput = document.getElementById('tempo-input');
       if (tempoInput) {
@@ -126,23 +179,24 @@ function createSequencerBridge() {
 }
 
 /**
- * Создание моста для Instrument
+ * Create bridge for Instrument
+ * @returns {Object} Instrument bridge object
  */
 function createInstrumentBridge() {
   return {
-    // Ссылка на инструменты
+    // Reference to instruments
     instruments: null,
     
-    // Методы воспроизведения
+    // Playback methods
     playChord: (chordName) => audioService.playChord(chordName),
     playChordNotes: (notes) => {
-      // Если notes - массив строк, проигрываем через аудио сервис
+      // If notes is an array of strings, play through audio service
       if (Array.isArray(notes) && notes.every(note => typeof note === 'string')) {
         audioService.instruments.synth.triggerAttackRelease(notes, "2n");
       }
     },
     
-    // Методы для метронома
+    // Metronome methods
     toggleMetronome: (enabled) => store.setMetronomeEnabled(enabled),
     startMetronome: () => {
       if (store.getMetronomeEnabled()) {
@@ -151,153 +205,103 @@ function createInstrumentBridge() {
     },
     stopMetronome: () => audioService.stopMetronome(),
     
-    // Инициализация инструментов
+    // Initialize instruments
     createInstruments: () => {
       const instruments = audioService.instruments;
       window.Instrument.instruments = instruments;
       return instruments;
     },
     
-    // Получение темпа
+    // Get tempo
     getTempo: () => store.getTempo(),
     
-    // Остановка всех звуков
+    // Stop all sounds
     stopAllSounds: () => audioService.stopAllSounds(),
     
-    // Получение текущего инструмента
+    // Get current instrument
     getCurrentInstrument: () => audioService.instruments.synth
   };
 }
 
 /**
- * Создание моста для ChordSuggestions
+ * Create bridge for ChordSuggestions
+ * @returns {Object} ChordSuggestions bridge object
  */
 function createChordSuggestionsBridge() {
+  // Import chordSuggestions module lazily
+  let chordSuggestionsModule = null;
+  
+  const getModule = async () => {
+    if (!chordSuggestionsModule) {
+      chordSuggestionsModule = await import('../components/chords/chordSuggestions.js');
+    }
+    return chordSuggestionsModule.default;
+  };
+  
   return {
-    // Инициализация
-    initChordSuggestions: () => {
-      // Инициализация уже произведена в новой архитектуре
-      console.log('ChordSuggestions инициализирован через мост');
+    // Initialize
+    initChordSuggestions: async () => {
+      const module = await getModule();
+      console.log('ChordSuggestions initialized through bridge');
     },
     
-    // Обновление подсказок
-    updateChordSuggestions: () => {
-      // Используем метод из нового компонента
-      chordSuggestions.updateSuggestions();
+    // Update suggestions
+    updateChordSuggestions: async () => {
+      const module = await getModule();
       
-      // Подсвечиваем кнопки аккордов
-      chordSuggestions.highlightTargets(['.chord-button']);
+      // Use method from new component
+      module.updateSuggestions();
+      
+      // Highlight chord buttons
+      module.highlightTargets(['.chord-button']);
     },
     
-    // Получение предлагаемых аккордов
-    getSuggestedChords: (lastChordName, tonality) => {
-      return chordSuggestions.getSuggestedChords(lastChordName, tonality);
+    // Get suggested chords
+    getSuggestedChords: async (lastChordName, tonality) => {
+      const module = await getModule();
+      return module.getSuggestedChords(lastChordName, tonality);
     },
     
-    // Получение текущих предложений
-    getCurrentSuggestions: () => chordSuggestions.getCurrentSuggestions()
+    // Get current suggestions
+    getCurrentSuggestions: async () => {
+      const module = await getModule();
+      return module.getCurrentSuggestions();
+    }
   };
 }
 
 /**
- * Создание моста для Arpeggiator
+ * Create bridge for Arpeggiator
+ * @returns {Object} Arpeggiator bridge object
  */
 function createArpeggiatorBridge() {
   return {
-    // Инициализация
+    // Initialize
     initializeArpeggiator: () => {
-      // Инициализация уже произведена в новой архитектуре
-      console.log('Arpeggiator инициализирован через мост');
+      // Already initialized in new architecture
+      console.log('Arpeggiator initialized through bridge');
     },
     
-    // Воспроизведение арпеджио
+    // Play arpeggio
     playArpeggio: (chordName) => {
-      // Включаем арпеджиатор
+      // Enable arpeggiator
       store.setArpeggiatorEnabled(true);
       
-      // Проигрываем аккорд (с включенным арпеджиатором)
+      // Play chord (with arpeggiator enabled)
       audioService.playChord(chordName);
     },
     
-    // Остановка арпеджио
+    // Stop arpeggio
     stopArpeggio: () => audioService.stopArpeggio(),
     
-    // Сохранение/загрузка настроек
+    // Save/load settings
     saveArpeggiatorSettings: (settings) => audioService.saveArpeggiatorSettings(settings),
     loadArpeggiatorSettings: () => audioService.getArpeggiatorSettings(),
     
-    // Включение/выключение
+    // Enable/disable
     setEnabled: (enabled) => store.setArpeggiatorEnabled(enabled),
     
-    // Получение настроек
+    // Get settings
     getSettings: () => audioService.getArpeggiatorSettings()
   };
-}
-
-/**
- * Создание моста для TrackStructure
- */
-function createTrackStructureBridge() {
-  return {
-    // Инициализация
-    initializeTrackStructure: () => {
-      // Инициализация уже произведена в новой архитектуре
-      console.log('TrackStructure инициализирован через мост');
-    },
-    
-    // Методы для работы с блоками
-    addNewBlock: (tonality) => trackStructureService.addNewBlock(tonality),
-    loadBlockChords: (index) => trackStructureService.loadBlockSequence(index),
-    clearCurrentBlock: () => trackStructureService.clearCurrentBlock(),
-    changeBlockTonality: (index, tonality, fromUI = false) => {
-      return trackStructureService.changeBlockTonality(index, tonality, fromUI);
-    },
-    
-    // Воспроизведение
-    playFullTrack: () => {
-      const allChords = trackStructureService.trackStructure.getAllChords();
-      if (allChords.length > 0) {
-        window.Sequencer.playCustomSequence(allChords, true);
-      }
-    },
-    
-    // Геттеры
-    getCurrentBlockIndex: () => trackStructureService.getCurrentBlockIndex(),
-    getTrackStructure: () => trackStructureService.getTrackStructure()
-  };
-}
-
-/**
- * Проверка наличия глобальных данных и создание заглушек при необходимости
- */
-export function ensureGlobalData() {
-  // Проверяем наличие CHORD_DATA
-  if (!window.CHORD_DATA) {
-    window.CHORD_DATA = {};
-    
-    // Заполняем из chordCollection
-    chordCollection.getAllChords().forEach(chord => {
-      window.CHORD_DATA[chord.name] = {
-        notes: chord.notes,
-        fullName: chord.fullName,
-        description: chord.description,
-        functions: chord.functions
-      };
-    });
-  }
-  
-  // Проверяем наличие TONALITY_DATA
-  if (!window.TONALITY_DATA) {
-    window.TONALITY_DATA = {};
-    
-    // Заполняем из tonalityCollection
-    tonalityCollection.getAllTonalities().forEach(tonality => {
-      window.TONALITY_DATA[tonality.code] = {
-        name: tonality.name,
-        type: tonality.type,
-        signature: tonality.signature,
-        chords: tonality.chords
-      };
-    });
-  }
 }
